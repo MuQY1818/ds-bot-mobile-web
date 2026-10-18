@@ -1,0 +1,115 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {MessageChannel} from 'node:worker_threads'
+import {installAssetWorker,renderMobileStartup,applyWebStartup,clearMobileAssetCache,WORKER_PATH} from '../web-startup.mjs'
+
+function fixture({broken=false,failWrites=0,response=()=>new Response('asset',{headers:{'content-type':'text/javascript'}})}={}){
+  const events={},stores=new Map(),network=[]
+  const cache={async match(request){return stores.get(request.url)?.clone()},async put(request,value){if(failWrites-->0)throw Error('quota');stores.set(request.url,value)},async keys(){return [...stores.keys()].map(url=>new Request(url))},async delete(request){return stores.delete(request.url)}}
+  const removed=[];let unregistered=0
+  const worker={location:{origin:'https://fixture.invalid'},registration:{async unregister(){unregistered++}},caches:{async open(){if(broken)throw Error('quota');return cache},async keys(){return ['other-app','ds-bot-mobile-web-assets-v0','ds-bot-mobile-web-assets-v1']},async delete(key){removed.push(key);if(key==='ds-bot-mobile-web-assets-v1')stores.clear()}},clients:{async claim(){}},async skipWaiting(){},async fetch(request){network.push(request.url??request.href);return response(request)},addEventListener(type,callback){events[type]=callback}}
+  installAssetWorker(worker)
+  async function fetchAsset(path,extra={}){
+    const request=Object.assign({url:new URL(path,worker.location.origin).href,method:'GET',mode:'cors',cache:'default'},extra)
+    const tasks=[];let result
+    events.fetch({request,respondWith(value){result=value},waitUntil(value){tasks.push(value)}})
+    const value=await result;await Promise.all(tasks);return value
+  }
+  return {events,network,stores,removed,worker,fetchAsset,unregistered:()=>unregistered}
+}
+
+test('a second versioned asset read uses local bytes while a new version still goes to the host',async()=>{
+  const f=fixture()
+  assert.equal(await (await f.fetchAsset('/assets/index-12345678.js')).text(),'asset')
+  assert.equal(await (await f.fetchAsset('/assets/index-12345678.js')).text(),'asset')
+  await f.fetchAsset('/assets/index-abcdefgh.js')
+  assert.equal(f.network.length,2)
+})
+
+test('documents, authentication, API, plugins, external URLs and forced reloads never enter the cache',async()=>{
+  const f=fixture()
+  for(const [path,extra] of [['/',{mode:'navigate'}],['/?token=private',{}],['/api/sessions',{}],['/plugins/batch.js?rev=12345678',{}],['/assets/index-12345678.js?token=private',{}],['/assets/plain.js',{}],['https://other.invalid/assets/index-12345678.js',{}],['/assets/index-12345678.js',{method:'POST'}],['/assets/index-12345678.js',{cache:'no-store'}],['/assets/index-12345678.js',{cache:'reload'}]])assert.equal(await f.fetchAsset(path,extra),undefined)
+  assert.deepEqual(f.network,['https://fixture.invalid/ds-bot-mobile-web-worker.js']);assert.equal(f.stores.size,0)
+})
+
+test('storage denial and noncacheable host responses do not prevent successful network delivery',async()=>{
+  const denied=fixture({broken:true});assert.equal(await (await denied.fetchAsset('/assets/index-12345678.js')).text(),'asset')
+  for(const response of [()=>new Response('auth',{status:401}),()=>new Response('<html>login</html>',{headers:{'content-type':'text/html'}}),()=>new Response('asset',{headers:{'content-type':'text/javascript','cache-control':'no-store'}})]){
+    const f=fixture({response});await f.fetchAsset('/assets/index-12345678.js');await f.fetchAsset('/assets/index-12345678.js');assert.equal(f.network.length,2);assert.equal(f.stores.size,0)
+  }
+})
+
+test('a failed quota write leaves network delivery usable and later writes recover',async()=>{
+  const f=fixture({failWrites:1})
+  for(let i=0;i<3;i++)assert.equal(await(await f.fetchAsset('/assets/index-12345678.js')).text(),'asset')
+  assert.equal(f.network.length,2);assert.equal(f.stores.size,1)
+})
+
+test('cache eviction is bounded and activation only deletes this plugin old caches',async()=>{
+  const f=fixture()
+  for(let i=0;i<35;i++)await f.fetchAsset(`/assets/chunk-${String(i).padStart(8,'0')}.js`)
+  assert.equal(f.stores.size,32)
+  let done;f.events.activate({waitUntil(value){done=value}});await done
+  assert.deepEqual(f.removed,['ds-bot-mobile-web-assets-v0'])
+})
+
+test('idle warmup rejects arbitrary URLs and stores only safe public versioned files',async()=>{
+  const f=fixture();let done
+  f.events.message({data:{type:'ds-bot-mobile-web/warm',paths:['/api/session','/?token=private','https://other.invalid/assets/index-12345678.js','/assets/index-12345678.js']},waitUntil(value){done=value}})
+  await done;assert.deepEqual(f.network,['https://fixture.invalid/assets/index-12345678.js'])
+})
+
+test('removing the server plugin retires its cache on navigation without taking over the document',async()=>{
+  const f=fixture({response:request=>new Response('',{status:(request.url??request.href).endsWith(WORKER_PATH)?404:200,headers:{'content-type':'text/javascript'}})})
+  await f.fetchAsset('/assets/index-12345678.js');assert.equal(f.stores.size,1)
+  assert.equal(await f.fetchAsset('/',{mode:'navigate'}),undefined)
+  assert.equal(f.unregistered(),1);assert.equal(f.stores.size,0)
+  assert.equal(await f.fetchAsset('/assets/index-12345678.js'),undefined)
+})
+
+test('explicit disable preserves another app active or pending worker and only removes this plugin caches',async()=>{
+  for(const otherWaiting of [false,true]){
+    let unregistered=0;const deleted=[]
+    const own={scriptURL:'https://fixture.invalid'+WORKER_PATH},other={scriptURL:'https://fixture.invalid/other.js'}
+    await clearMobileAssetCache({location:{origin:'https://fixture.invalid'},navigator:{serviceWorker:{async getRegistration(){return {active:own,waiting:otherWaiting?other:null,async unregister(){unregistered++}}}}},caches:{async keys(){return ['other-app','ds-bot-mobile-web-assets-v1']},async delete(key){deleted.push(key)}}})
+    assert.equal(unregistered,otherWaiting?0:1);assert.deepEqual(deleted,['ds-bot-mobile-web-assets-v1'])
+  }
+})
+
+test('retire acknowledges disabling, cannot refill its cache and preserves a newly waiting owner',async()=>{
+  const f=fixture();await f.fetchAsset('/assets/index-12345678.js')
+  f.worker.registration.waiting={scriptURL:'https://fixture.invalid/other-worker.js'}
+  let done,ack=false
+  f.events.message({data:{type:'ds-bot-mobile-web/retire'},ports:[{postMessage(){ack=true}}],waitUntil(value){done=value}})
+  await done;assert.equal(ack,true);assert.equal(f.unregistered(),0);assert.equal(f.stores.size,0)
+  await f.fetchAsset('/assets/index-12345678.js');assert.equal(f.stores.size,0)
+})
+
+test('disable rechecks worker ownership after awaiting the active worker acknowledgement',async()=>{
+  let unregistered=0
+  const registration={active:{scriptURL:'https://fixture.invalid'+WORKER_PATH,postMessage(_,ports){registration.waiting={scriptURL:'https://fixture.invalid/other.js'};ports[0].postMessage('retired')}},async unregister(){unregistered++}}
+  await clearMobileAssetCache({MessageChannel,location:{origin:'https://fixture.invalid'},navigator:{serviceWorker:{async getRegistration(){return registration}}},caches:{async keys(){return []}}})
+  assert.equal(unregistered,0)
+})
+
+test('boot markup stays inside the replaceable root and does not serialize signed plugin URLs',()=>{
+  const input='<html><head><script src="plugins.js?token=private"></script><script src="./assets/index-12345678.js"></script></head><body><div id="root"></div></body></html>'
+  const result=renderMobileStartup(input)
+  assert.match(result,/<div id="root"><div id="dsm-boot" role="status"/)
+  assert.match(result,/\["\/assets\/index-12345678.js"\]/)
+  assert.equal((result.match(/token=private/g)??[]).length,1)
+  assert.equal(renderMobileStartup(result),result)
+})
+
+test('official route serves an updatable worker and both route and index transform are disposed',()=>{
+  const cleanup=[];let route,tap,removed=0
+  applyWebStartup({effect(run){cleanup.push(run())},webServer:{tapIndex(fn){tap=fn;return()=>removed++},register(value){route=value;return()=>removed++}}})
+  assert.equal(tap,renderMobileStartup);assert.equal(route.path,WORKER_PATH)
+  for(const [method,status] of [['GET',200],['HEAD',200],['POST',405]]){
+    const response={writeHead(code,headers){this.status=code;this.headers=headers},end(body){this.body=body}}
+    route.handler({method},response);assert.equal(response.status,status);assert.equal(response.headers['cache-control'],'no-store')
+    if(method==='GET')assert.match(response.body,/installAssetWorker/)
+    if(method==='HEAD')assert.equal(response.body,undefined)
+  }
+  cleanup.forEach(fn=>fn());assert.equal(removed,2)
+})

@@ -1,20 +1,12 @@
-<h1 align="center">DS Bot Mobile Web</h1>
+# DS Bot Mobile Web
 
-<p align="center">在手机浏览器中，与自己的 Bot 团队继续工作。</p>
+在手机浏览器中继续使用电脑上的 Bot、群聊和消息历史。
 
-<p align="center">
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="构建与检查"></a>
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.2"><img src="https://img.shields.io/badge/release-0.4.2-blue" alt="版本 0.4.2"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 许可"></a>
-</p>
+[English](README.en.md) · [安装与连接](docs/installation.md) · [使用指南](docs/usage.md) · [下载](https://github.com/MuQY1818/ds-bot-mobile-web/releases) · [反馈](https://github.com/MuQY1818/ds-bot-mobile-web/issues)
 
-<p align="center">
-  简体中文 · <a href="README.en.md">English</a> · <a href="docs/installation.md">安装指南</a> · <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases">下载</a> · <a href="https://github.com/MuQY1818/ds-bot-mobile-web/issues">反馈</a>
-</p>
+DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 增加手机布局、会话导航和扫码登录入口。插件安装在电脑上，手机直接用浏览器访问；无需安装原生 App，也无需 Mobile Bridge。
 
-DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 的移动界面插件。它在现有会话上提供适合手机的导航、团队视图和扫码登录入口，共用电脑上的 Bot、群聊与消息历史。
-
-> **当前版本 `0.4.2`**：面向 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`，新增手机有效发送后收起键盘；宿主安装与设备验证分别记录。插件安装在电脑上，手机使用浏览器访问；Safari 真机网络场景的验证边界见[开发状态](docs/status.md)。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
+当前已发布版本 **0.4.3**，适配 DSH **0.2.1-rc.2** 与 DS Bot **0.1.7**。本版新增基础资源缓存、首屏连接提示和近期会话预热，并修复聊天边界带动整页移动。项目以 Web 为主要使用入口；原生客户端另见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 
@@ -37,97 +29,58 @@ DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/de
 
 </details>
 
-## 主要功能
+## 能做什么
 
-- **移动会话导航**：会话列表、团队、搜索、连接状态与返回导航。
-- **复用完整聊天界面**：沿用 DS Bot 的消息渲染和输入框，保留流式回复、群聊与交互卡片。
-- **统一手机访问**：从账户菜单打开“手机访问 → Web”；与 App 配套插件共用 Web / App 标签弹窗，各包仍可独立启停。
-- **保留 Bot 身份**：显示精灵头像、工作状态及群成员组合。
-- **统一消息界面**：紧凑列表、居中身份、黑色用户气泡与浅灰 Bot 气泡，宽屏保留桌面布局。
-- **快速返回会话**：保留最近 3 段会话的宿主内存引用，5 分钟内返回复用历史；不另存聊天转录。
-- **减少重复同步**：合并并发团队查询，取消过期导航，桌面和后台停止手机元数据轮询；实时消息仍使用宿主 Session 流。隔离测量见[网络性能记录](docs/network-performance.md)。
+- 在会话列表与团队视图中搜索、打开已有 Bot 和群聊，查看精灵头像与工作状态。
+- 沿用 DS Bot 的聊天与输入组件，保留流式回复、群成员归属、工具结果和宿主支持的交互卡片。
+- 在电脑账户菜单的 **手机访问 → Web** 中取得登录二维码或链接。
+- 发送有效消息后收起手机输入键盘；Shift+Enter 继续换行，桌面宽屏保留输入焦点。
+- 在当前页面内短期保留最近会话，减少来回切换时的历史加载；后台和桌面停止额外的手机元数据轮询。
+- 与 App 配套插件共用一个手机访问弹窗，两种方式仍可独立安装和启停。
 
-## 开发状态
+## 三步开始
 
-Web 插件已可使用；近期包名迁移导致的入口配置失效已修复。完整 Safari 真机验收仍待完成。详细进度见[开发状态](docs/status.md)。
+1. **安装到电脑**：从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 下载 `ds-bot-mobile-web-0.4.3.tgz`，在现有 DSH 插件管理器安装并启用，刷新页面。
+2. **准备手机入口**：保持电脑和 DSH 运行，确认手机能访问已配置的 HTTPS 地址。使用 Tailscale 时，两端都要连接对应私网。配置方法见[网络连接](docs/remote-access.md)。
+3. **扫码登录**：在电脑选择 **手机访问 → Web**，确认入口就绪后扫码，在手机浏览器中打开会话。
 
-## 快速开始
+详细步骤、旧包迁移和回退见[安装指南](docs/installation.md)。GitHub 自动生成的源码压缩包用于开发，安装插件请选择 Release 中的 `.tgz`。
 
-### 环境要求
+## 日常使用
 
-| 组件 | 要求 |
-| --- | --- |
-| 电脑端 | 已运行 DSH 与 DS Bot，现有团队可正常使用 |
-| 验证组合 | DSH `0.2.1-rc.2` / DS Bot `0.1.7` |
-| 网络 | 手机可访问的 HTTPS 入口及宿主域名信任配置 |
-| 手机端 | 浏览器；使用私网入口时需连接对应私网 |
+登录后可以收藏普通入口地址，或[添加到手机桌面](docs/usage.md#添加到手机桌面)。电脑休眠或退出 DSH 后，手机无法继续连接。登录失效时，从电脑重新取得登录二维码即可。
 
-### 安装与登录
+添加桌面只提供便捷入口，不代表离线应用。浏览器可复用已缓存的基础资源，但回收页面、长时间后台或清理站点数据后，仍需恢复连接与历史。[常见问题](docs/faq.md)说明缓存、登录与加载速度的实际边界。
 
-1. 在电脑上从 [v0.4.2 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.2) 下载 `ds-bot-mobile-web-0.4.2.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
-2. 在现有 DSH 的插件管理器中安装本地 `.tgz`，确认包名和版本，启用后刷新页面；如宿主要求重启，按提示操作。
-3. 在电脑端 DS Bot 账户菜单选择 **手机访问 → Web**。入口未配置时，填写已准备好的 HTTPS 地址。
-4. 手机接入对应网络，扫描二维码，并在浏览器中完成登录。
+## 平台与组件
 
-尚未准备网络入口时，请先阅读[远程访问](docs/remote-access.md)。插件复用 DSH 认证；HTTPS、代理及域名信任由宿主环境配置。
-
-**从旧包升级**：先停用 `dsh-mobile-layout-local`，再启用 `ds-bot-mobile-web`。现有布局偏好与入口配置继续保留。详见[迁移说明](docs/installation.md#从旧包名迁移)。
-
-## Web 与原生 App
-
-| | Mobile Web | Mobile App |
+| 使用方式 | 手机端 | 电脑端需要 |
 | --- | --- | --- |
-| 使用方式 | 手机浏览器 | iOS / Android 原生客户端 |
-| 电脑端组件 | 本仓库的 Web 插件 | Mobile App 配对插件 + Mobile Bridge |
-| 登录方式 | DSH 浏览器认证链接 | 电脑批准设备配对 |
-| 适用场景 | 快速访问现有 DS Bot Web 界面 | 原生导航、设备授权与本地缓存 |
+| **Mobile Web，主要入口** | iPhone Safari、Android Chrome 等现代浏览器 | DSH、DS Bot、`ds-bot-mobile-web` |
+| 原生 App，源码预览 | 自行构建的 iOS / Android 客户端 | 兼容 DS Bot、App 配套插件、Mobile Bridge |
 
-两者分别维护，均连接已有团队。使用 Mobile Web 无需安装 Mobile Bridge。
+浏览器适配不代表所有系统组合均完成设备验证。iPhone Safari 的长后台、网络切换和桌面入口冷启动仍需持续完善。原生 App 当前没有公开可直接安装的 IPA/APK。
 
-电脑端共有三个可独立启停的插件：`ds-bot-mobile-web` 提供手机 Web 与浏览器登录，`ds-bot-mobile-app` 提供原生 App 的配对和设备管理界面，`ds-bot-mobile-bridge` 提供设备认证与协议服务。后两者由 [App 仓库](https://github.com/MuQY1818/ds-bot-mobile-app/blob/main/docs/plugins.md)维护；停用配对界面不会停止 Bridge 或撤销现有设备。
-
-## 开发
-
-需要 Git、Node.js 24+、npm 和 Python 3（源码审计）。克隆时一并获取固定版本的上游子模块：
-
-```sh
-git clone --recurse-submodules https://github.com/MuQY1818/ds-bot-mobile-web.git
-cd ds-bot-mobile-web
-npm run setup
-npm run check
-npm run build
-npm run audit:files
-```
-
-源码提交后，运行 `npm run pack` 生成 `artifacts/` 下的安装包、校验值及源码元数据。打包要求工作树干净；发布版本的标签与附件保持对应。开发流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+三个电脑端插件各司其职：Web 提供浏览器界面；`ds-bot-mobile-app` 提供原生 App 配对管理；`ds-bot-mobile-bridge` 提供设备认证和传输。只用 Web 时，后两个不用安装。
 
 ## 文档
 
-| 文档 | 内容 |
+| 文档 | 解决的问题 |
 | --- | --- |
-| [安装指南](docs/installation.md) | 下载校验、安装、升级与回退 |
-| [远程访问](docs/remote-access.md) | 私网、HTTPS、域名信任与登录 |
-| [网络方案](docs/remote-connectivity.md) | ZCode 中继、Tailscale 与 Cloudflare Tunnel 的选择 |
-| [使用说明](docs/usage.md) | 手机导航、扫码面板与连接状态 |
-| [故障排查](docs/troubleshooting.md) | 连接、认证与布局问题 |
-| [架构](docs/architecture.md) | 宿主接口、凭据边界与菜单适配 |
-| [兼容与验证](docs/validation.md) | 已验证场景及平台限制 |
-| [变更记录](CHANGELOG.md) | 版本差异 |
+| [安装与连接](docs/installation.md) | 安装、扫码、升级、旧包迁移与回退 |
+| [使用指南](docs/usage.md) | 会话、发送、添加桌面与日常登录 |
+| [常见问题](docs/faq.md) | 缓存、电脑休眠、Web 与 App 的区别 |
+| [故障排查](docs/troubleshooting.md) | 无法打开、认证失败、入口缺失与加载缓慢 |
+| [网络连接](docs/remote-access.md) | HTTPS、私网及宿主入口配置 |
+| [当前状态](docs/status.md) | 已发布功能和正在完善的部分 |
+| [版本记录](CHANGELOG.md) | 各版本用户可见变化 |
 
-## 兼容性与访问凭据
+开发者可阅读[贡献指南](CONTRIBUTING.md)、[架构](docs/architecture.md)和[验证记录](docs/validation.md)。源码使用 Node.js 24；构建和发布检查属于开发流程，不是手机使用前的操作步骤。
 
-布局使用宿主公开插件接口，也依赖部分 DOM 标记；账户菜单入口通过独立 DOM 适配提供。升级 DSH 或 DS Bot 后需回归检查。菜单不可用时，可从 插件管理器 → ds-bot-mobile-web 详情页打开访问面板。
+## 访问与隐私
 
-完整的 iPhone Safari 软键盘、安全区、锁屏及网络切换矩阵仍需真机验证，详见[验证说明](docs/validation.md)。
+登录二维码及完整登录链接携带访问权限，只给自己的设备。反馈问题时请说明设备、浏览器、版本与复现步骤，遮住二维码、登录链接和私人聊天。插件不会创建公网入口或替你修改网络配置。
 
-登录二维码和完整链接包含访问权限，应仅传给自己的设备。关闭面板会清理界面状态；刷新入口不等于撤销已有链接。宿主重启后请重新获取登录链接。
+## 许可与来源
 
-## 贡献与反馈
-
-欢迎提交文档改进和可复现的缺陷报告。请先阅读[贡献指南](CONTRIBUTING.md)；报告问题时附上 DSH、DS Bot、插件版本和复现步骤，并移除登录链接、二维码和私人会话内容。
-
-## 许可与致谢
-
-采用 [Apache License 2.0](LICENSE)。精灵组件来自固定版本的 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot)；二维码编码器及相关依赖的许可见 [NOTICE](NOTICE) 和[插件 NOTICE](mobile-web-prototype/plugin/NOTICE)。
-
-本项目为独立社区项目，与 DeepSeek 官方无隶属关系。
+[Apache License 2.0](LICENSE)。精灵组件来自固定版本的 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot)，依赖和版权声明保留于 [NOTICE](NOTICE) 及[插件 NOTICE](mobile-web-prototype/plugin/NOTICE)。这是独立社区项目，与 DeepSeek 官方无隶属关系。

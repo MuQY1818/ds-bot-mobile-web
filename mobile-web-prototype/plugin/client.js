@@ -2049,45 +2049,57 @@ function createSessionRetention({ sessions, now = Date.now, maxEntries = 3, ttlM
     if (entry) release(entry);
     schedule();
   };
+  function acquire(target, warming) {
+    if (!enabled || closed || typeof sessions.retain !== "function") return;
+    prune();
+    let entry = entries.get(target.id);
+    if (entry && entry.sessionId !== target.sessionId) {
+      release(entry);
+      entry = void 0;
+    }
+    if (entry) {
+      if (warming) return;
+      entry.warming = false;
+      entry.visitedAt = now();
+      entries.delete(target.id);
+      entries.set(target.id, entry);
+      schedule();
+      return;
+    }
+    if (warming && entries.size >= maxEntries) return;
+    while (entries.size >= maxEntries && entries.size) release(entries.values().next().value);
+    let reference;
+    try {
+      reference = sessions.retain(target.sessionId, { source: "dsBotMobileWebRecent" });
+    } catch {
+      schedule();
+      return;
+    }
+    entry = { id: target.id, sessionId: target.sessionId, visitedAt: now(), reference, warming };
+    entries.set(target.id, entry);
+    const failed = () => {
+      release(entry);
+      schedule();
+    };
+    const ready = Promise.resolve(reference.ready);
+    ready.then((binding) => {
+      if (entries.get(entry.id) === entry && binding.session.getSnapshot().openState === "error") failed();
+    }, failed).catch(failed);
+    schedule();
+    if (warming) return { target, ready, release() {
+      if (entry.warming) {
+        release(entry);
+        schedule();
+      }
+    } };
+  }
   return {
     setEnabled(value) {
       enabled = Boolean(value) && !closed;
       if (!enabled) clear();
     },
-    visit(target) {
-      if (!enabled || closed || typeof sessions.retain !== "function") return;
-      prune();
-      let entry = entries.get(target.id);
-      if (entry && entry.sessionId !== target.sessionId) {
-        release(entry);
-        entry = void 0;
-      }
-      if (entry) {
-        entry.visitedAt = now();
-        entries.delete(target.id);
-        entries.set(target.id, entry);
-        schedule();
-        return;
-      }
-      while (entries.size >= maxEntries && entries.size) release(entries.values().next().value);
-      let reference;
-      try {
-        reference = sessions.retain(target.sessionId, { source: "dsBotMobileWebRecent" });
-      } catch {
-        schedule();
-        return;
-      }
-      entry = { id: target.id, sessionId: target.sessionId, visitedAt: now(), reference };
-      entries.set(target.id, entry);
-      const failed = () => {
-        release(entry);
-        schedule();
-      };
-      Promise.resolve(reference.ready).then((binding) => {
-        if (entries.get(entry.id) === entry && binding.session.getSnapshot().openState === "error") failed();
-      }, failed).catch(failed);
-      schedule();
-    },
+    visit: (target) => acquire(target, false),
+    prewarm: (target) => acquire(target, true),
     reconcile(items) {
       const current = new Map(items.map((item) => [item.id, item.sessionId]));
       for (const entry of entries.values()) if (current.get(entry.id) !== entry.sessionId) release(entry);
@@ -2104,6 +2116,93 @@ function createSessionRetention({ sessions, now = Date.now, maxEntries = 3, ttlM
   };
 }
 
+// src/session-warmup.mjs
+var scheduleIdle = (callback) => {
+  if (typeof globalThis.requestIdleCallback === "function") {
+    const id2 = globalThis.requestIdleCallback(callback, { timeout: 1500 });
+    return () => globalThis.cancelIdleCallback(id2);
+  }
+  const id = setTimeout(callback, 350);
+  id?.unref?.();
+  return () => clearTimeout(id);
+};
+function sessionWarmupTargets(items, { activeId, recentIds = [] } = {}) {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const ordered = [byId.get(activeId), items.find((item) => item.isMain), ...recentIds.map((id) => byId.get(id))];
+  const used = /* @__PURE__ */ new Set();
+  return ordered.filter((item) => {
+    if (!item?.sessionId || used.has(item.sessionId)) return false;
+    used.add(item.sessionId);
+    return true;
+  }).slice(0, 2);
+}
+function createSessionWarmup({ prewarm, idle = scheduleIdle, events = globalThis, online = () => globalThis.navigator?.onLine !== false }) {
+  let closed = false, enabled = false, signature = "", pending = [], cancelIdle, active;
+  const cancel = () => {
+    cancelIdle?.();
+    cancelIdle = void 0;
+    const current = active;
+    active = void 0;
+    current?.release();
+  };
+  const schedule = () => {
+    if (closed || !enabled || active || cancelIdle || !pending.length) return;
+    cancelIdle = idle(run);
+  };
+  const run = () => {
+    cancelIdle = void 0;
+    if (closed || !enabled || !online()) {
+      sync({ enabled: false });
+      return;
+    }
+    const target = pending.shift();
+    if (!target) return;
+    let reference;
+    try {
+      reference = prewarm(target);
+    } catch {
+    }
+    if (!reference) {
+      schedule();
+      return;
+    }
+    active = reference;
+    Promise.resolve(reference.ready).catch(() => {
+    }).finally(() => {
+      if (active !== reference) return;
+      active = void 0;
+      schedule();
+    });
+  };
+  function sync({ enabled: next, targets = [] }) {
+    if (closed) return;
+    if (!next || !online()) {
+      enabled = false;
+      signature = "";
+      pending = [];
+      cancel();
+      return;
+    }
+    enabled = true;
+    const wanted = targets.slice(0, 2);
+    const key = JSON.stringify(wanted.map((target) => [target.id, target.sessionId]));
+    if (signature !== key) {
+      signature = key;
+      pending = wanted;
+      if (active && !wanted.some((target) => target.id === active.target.id && target.sessionId === active.target.sessionId)) cancel();
+    }
+    schedule();
+  }
+  const offline = () => sync({ enabled: false });
+  events.addEventListener?.("offline", offline);
+  return { sync, close() {
+    if (closed) return;
+    sync({ enabled: false });
+    closed = true;
+    events.removeEventListener?.("offline", offline);
+  } };
+}
+
 // src/controller.mjs
 var unauthorized = (error) => error?.code === "HTTP_401" || error?.code === "HTTP_403";
 function summarizeTeam(team) {
@@ -2114,9 +2213,12 @@ function summarizeTeam(team) {
   });
   return [...bots, ...team.rooms.map((room) => ({ id: room.id, name: room.name, kind: "room", sessionId: room.id, preview: typeof room.preview === "string" ? room.preview : "", members: room.members ?? [] }))];
 }
-function createMobileNavigation({ api, workspace, sessions, connection, history, now = Date.now }) {
+function createMobileNavigation({ api, workspace, sessions, connection, history, now = Date.now, idle }) {
   const listeners = /* @__PURE__ */ new Set();
   const retention = createSessionRetention({ sessions, now });
+  const warmup = createSessionWarmup({ prewarm: (target) => retention.prewarm(target), idle });
+  let cacheEnabled = false, warmingEnabled = false;
+  const recentIds = [];
   let state = { page: history.state?.dsMobilePage === "chat" ? "chat" : "home", tab: "chats", items: [], active: null, error: "", loading: false, query: "", connected: connection.state.getSnapshot(), lastSync: null };
   let disposed = false, nav = 0, pull = 0, controller, restoring, refreshing, navigation;
   const publish = (patch) => {
@@ -2131,7 +2233,11 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     if (target && target !== state.active) publish({ active: target });
   };
   const offSessions = sessions.list.subscribe(syncSelection);
-  const offConnection = connection.state.subscribe(() => publish({ connected: connection.state.getSnapshot() }));
+  const offConnection = connection.state.subscribe(() => {
+    const connected = connection.state.getSnapshot();
+    if (connected !== "connected") warmup.sync({ enabled: false });
+    publish({ connected });
+  });
   function cancelNavigation() {
     nav++;
     navigation?.abort();
@@ -2151,9 +2257,13 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
         retention.reconcile(items);
         publish({ items, loading: false, error: "", lastSync: now() });
         syncSelection();
+        if (cacheEnabled && warmingEnabled && state.connected === "connected") warmup.sync({ enabled: true, targets: sessionWarmupTargets(items, { activeId: state.active?.id, recentIds }) });
       } catch (error) {
         if (disposed || issued !== pull || request.signal.aborted) return;
-        if (unauthorized(error)) retention.clear();
+        if (unauthorized(error)) {
+          warmup.sync({ enabled: false });
+          retention.clear();
+        }
         const errorText = unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
         publish({ loading: false, error: errorText });
       }
@@ -2171,13 +2281,19 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
       const target = await api.target(id, request.signal);
       if (disposed || attempt !== nav) return;
       retention.visit(target);
+      const recent = recentIds.indexOf(target.id);
+      if (recent >= 0) recentIds.splice(recent, 1);
+      recentIds.unshift(target.id);
+      recentIds.length = Math.min(recentIds.length, 3);
       workspace.openSession(target.sessionId);
       if (state.page !== "chat") history.pushState({ ...history.state, dsMobilePage: "chat" }, "");
       publish({ active: target, page: "chat", loading: false });
     } catch (error) {
       if (disposed || attempt !== nav) return;
-      if (unauthorized(error)) retention.clear();
-      else retention.discard(id);
+      if (unauthorized(error)) {
+        warmup.sync({ enabled: false });
+        retention.clear();
+      } else retention.discard(id);
       publish({ loading: false, error: unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "无法打开会话，请刷新列表后重试。" });
     } finally {
       if (navigation === request) navigation = void 0;
@@ -2202,7 +2318,16 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     refresh,
     open,
     restore,
-    setCacheEnabled: (enabled) => retention.setEnabled(enabled),
+    pauseWarmup() {
+      warmingEnabled = false;
+      warmup.sync({ enabled: false });
+    },
+    setCacheEnabled(enabled) {
+      cacheEnabled = Boolean(enabled);
+      warmingEnabled = cacheEnabled;
+      if (!warmingEnabled) warmup.sync({ enabled: false });
+      retention.setEnabled(cacheEnabled);
+    },
     search: (query) => publish({ query }),
     selectTab(tab) {
       if (!["chats", "team", "connection"].includes(tab)) return;
@@ -2228,6 +2353,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
       cancelNavigation();
       pull++;
       controller?.abort();
+      warmup.close();
       retention.close();
       offSessions();
       offConnection();
@@ -2323,6 +2449,35 @@ function createComposerKeyboard({ anchor, enabled, document: document2 }) {
       return true;
     }
   };
+}
+
+// web-startup.mjs
+async function clearMobileAssetCache(environment) {
+  try {
+    const registration = await environment.navigator.serviceWorker?.getRegistration("/");
+    const script = new URL("/ds-bot-mobile-web-worker.js", environment.location.origin).href;
+    if (registration?.active?.scriptURL === script && registration.active.postMessage) {
+      if (environment.MessageChannel) await new Promise((resolve) => {
+        const channel = new environment.MessageChannel(), timer = setTimeout(done, 1e3);
+        function done() {
+          clearTimeout(timer);
+          channel.port1.close();
+          resolve();
+        }
+        channel.port1.onmessage = done;
+        registration.active.postMessage({ type: "ds-bot-mobile-web/retire" }, [channel.port2]);
+      });
+      else registration.active.postMessage({ type: "ds-bot-mobile-web/retire" });
+    }
+    const current = await environment.navigator.serviceWorker?.getRegistration("/");
+    const owners = [current?.active, current?.waiting, current?.installing].filter(Boolean);
+    if (owners.length && owners.every((owner) => owner.scriptURL === script)) await current.unregister();
+  } catch {
+  }
+  try {
+    for (const key of await environment.caches.keys()) if (key.startsWith("ds-bot-mobile-web-assets-")) await environment.caches.delete(key);
+  } catch {
+  }
 }
 
 // src/phone-controller.mjs
@@ -2746,7 +2901,9 @@ var phone_default = '.dsm-phone-panel{font:14px/1.55 -apple-system,BlinkMacSyste
 // src/mobile.css
 var mobile_default = `.dsm-chrome,.dsm-return{display:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){
-body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(66px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;overscroll-behavior:none}
+/* Keep touch scrolling inside the visible mobile surface, including at its edges. */
+html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavior:none}
+body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(66px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
 body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-main:#fff;--bt-bubble:#f2f2f2;--bt-sidebar:#f7f7f7;--bt-user:#070707;--bt-user-ink:#fff;--bt-ink:#141414;--bt-ink-2:#686868}
 body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929;--bt-user:#f2f2f2;--bt-user-ink:#141414}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay]){position:fixed!important;inset:var(--dsm-top,0px) 0 auto!important;height:var(--dsm-height,100dvh)!important;box-sizing:border-box!important;padding-top:var(--dsm-bar)!important;grid-template-columns:0 minmax(0,1fr) 0!important;grid-template-rows:minmax(0,1fr)!important;transition:none!important;background:var(--dsm-bg)}
@@ -2765,7 +2922,8 @@ body[data-dsm-enabled] .bt-panel{top:calc(var(--dsm-top,0px) + var(--dsm-bar))!i
 body[data-dsm-enabled] .bt-panel-grip{display:none}
 body[data-dsm-enabled] [class*="_scroll"]:has(>[class*="_column"]){padding:16px 18px!important;background:var(--dsm-bg)!important}
 body[data-dsm-enabled] [class*="_column"],body[data-dsm-enabled] [data-composer-card]{max-width:100%!important;min-width:0!important}
-body[data-dsm-enabled] [data-conversation-scroll]{background:var(--dsm-bg)!important}
+body[data-dsm-enabled] [data-conversation-scroll]{background:var(--dsm-bg)!important;overscroll-behavior:none}
+body[data-dsm-enabled] .bt-drawer-body{overscroll-behavior:contain}
 body[data-dsm-enabled][data-bt-room] [data-composer-card] .bt-mic{background:var(--dsm-ink)!important;color:var(--dsm-bg)!important}
 body[data-dsm-enabled] .bt-msg{max-width:calc(100% - 24px)}
 body[data-dsm-enabled] .bt-astack[data-lead]>.bt-msg{max-width:100%}
@@ -2780,7 +2938,7 @@ body[data-dsm-enabled] [class*="_root"]:has(>[data-composer-card]){padding:8px 1
 body[data-dsm-enabled] [class*="_root"]:has(>[data-composer-card])>[class*="_dock"]:has([data-slot="conversation.composer.dock"]){display:none!important}
 body[data-dsm-enabled] [data-composer-input]{font-size:16px!important;line-height:1.5!important}
 body[data-dsm-enabled] [data-composer-card]{padding:7px!important;border-radius:28px!important;background:var(--dsm-surface)!important;box-shadow:none!important;border:0!important}
-body[data-dsm-enabled] [data-composer-card]>[data-input-scroll]{min-width:0!important}
+body[data-dsm-enabled] [data-composer-card]>[data-input-scroll]{min-width:0!important;overscroll-behavior:contain}
 body[data-dsm-enabled] [data-composer-card] button{min-width:44px!important;min-height:44px!important}
 body[data-dsm-enabled] [data-composer-card] :is(button[class*="_primary"],.bt-voice){background:var(--bt-user)!important;color:var(--bt-user-ink)!important;border-radius:50%!important}
 body[data-dsm-enabled] [data-composer-card] button svg{max-width:20px;max-height:20px}
@@ -2800,7 +2958,7 @@ body[data-dsm-enabled] .dsm-chrome{display:block;font-family:-apple-system,Blink
 .dsm-current>span[data-connected=disconnected]{color:#ad501a}
 .dsm-title-mascot{display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;background:var(--dsm-surface);font-size:16px;font-weight:600;line-height:28px;max-width:100%;width:max-content;margin:0 auto 2px;padding:4px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsm-header-spacer{display:block;width:44px;height:44px}
-.dsm-home{position:fixed;top:calc(var(--dsm-top,0px) + var(--dsm-bar));left:0;right:0;height:calc(var(--dsm-height,100dvh) - var(--dsm-bar) - var(--dsm-tab-height));overflow:auto;overscroll-behavior:contain;background:var(--dsm-bg);pointer-events:auto;padding:10px 18px 24px;box-sizing:border-box;z-index:25}
+.dsm-home{position:fixed;top:calc(var(--dsm-top,0px) + var(--dsm-bar));left:0;right:0;height:calc(var(--dsm-height,100dvh) - var(--dsm-bar) - var(--dsm-tab-height));overflow:auto;overscroll-behavior:none;background:var(--dsm-bg);pointer-events:auto;padding:10px 18px 24px;box-sizing:border-box;z-index:25}
 .dsm-search{position:relative;display:flex;align-items:center;margin:0 0 12px;padding:0 14px;border-radius:16px;background:var(--dsm-surface);color:var(--dsm-secondary)}
 .dsm-search>svg{width:19px;height:19px;flex:none}
 .dsm-search input{display:block;min-width:0;width:100%;min-height:48px;margin:0;padding:11px 10px;font:inherit;font-size:16px;border:0;border-radius:16px;color:var(--dsm-ink);background:transparent;box-sizing:border-box}
@@ -4170,7 +4328,10 @@ function apply(ctx) {
     const polling = createRefreshLoop({ enabled: mobileActive, refresh: () => {
       if (!controller.snapshot().loading) return controller.refresh();
     } });
-    const cacheMode = () => controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches && !document.hidden);
+    const cacheMode = () => {
+      controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches && !document.hidden);
+      if (!preference.snapshot()) void clearMobileAssetCache(window);
+    };
     const delayCacheRelease = () => {
       clearTimeout(cacheRelease);
       cacheRelease = setTimeout(() => controller.setCacheEnabled(false), 3e4);
@@ -4201,6 +4362,7 @@ function apply(ctx) {
     const visible = () => {
       if (document.hidden) {
         suspended = true;
+        controller.pauseWarmup();
         poll();
         delayCacheRelease();
       } else if (suspended) {

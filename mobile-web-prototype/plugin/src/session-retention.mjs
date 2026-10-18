@@ -29,31 +29,37 @@ export function createSessionRetention({sessions,now=Date.now,maxEntries=3,ttlMs
     if(entry)release(entry)
     schedule()
   }
+  function acquire(target,warming){
+    if(!enabled||closed||typeof sessions.retain!=='function')return
+    prune()
+    let entry=entries.get(target.id)
+    if(entry&&entry.sessionId!==target.sessionId){release(entry);entry=undefined}
+    if(entry){
+      if(warming)return
+      entry.warming=false
+      entry.visitedAt=now()
+      entries.delete(target.id);entries.set(target.id,entry)
+      schedule();return
+    }
+    // Optional warmups never evict a conversation the user already visited.
+    if(warming&&entries.size>=maxEntries)return
+    while(entries.size>=maxEntries&&entries.size)release(entries.values().next().value)
+    let reference
+    try{reference=sessions.retain(target.sessionId,{source:'dsBotMobileWebRecent'})}catch{schedule();return}
+    entry={id:target.id,sessionId:target.sessionId,visitedAt:now(),reference,warming}
+    entries.set(target.id,entry)
+    const failed=()=>{release(entry);schedule()}
+    const ready=Promise.resolve(reference.ready)
+    ready.then(binding=>{
+      if(entries.get(entry.id)===entry&&binding.session.getSnapshot().openState==='error')failed()
+    },failed).catch(failed)
+    schedule()
+    if(warming)return {target,ready,release(){if(entry.warming){release(entry);schedule()}}}
+  }
   return {
     setEnabled(value){enabled=Boolean(value)&&!closed;if(!enabled)clear()},
-    visit(target){
-      if(!enabled||closed||typeof sessions.retain!=='function')return
-      prune()
-      let entry=entries.get(target.id)
-      if(entry&&entry.sessionId!==target.sessionId){release(entry);entry=undefined}
-      if(entry){
-        entry.visitedAt=now()
-        entries.delete(target.id);entries.set(target.id,entry)
-        schedule();return
-      }
-      while(entries.size>=maxEntries&&entries.size)release(entries.values().next().value)
-      let reference
-      try{reference=sessions.retain(target.sessionId,{source:'dsBotMobileWebRecent'})}catch{schedule();return}
-      entry={id:target.id,sessionId:target.sessionId,visitedAt:now(),reference}
-      entries.set(target.id,entry)
-      const failed=()=>{release(entry);schedule()}
-      // Observe readiness even if disable, a late navigation, or TTL releases it first.
-      // A resolved opening can still report a Remote error in its Session snapshot.
-      Promise.resolve(reference.ready).then(binding=>{
-        if(entries.get(entry.id)===entry&&binding.session.getSnapshot().openState==='error')failed()
-      },failed).catch(failed)
-      schedule()
-    },
+    visit:target=>acquire(target,false),
+    prewarm:target=>acquire(target,true),
     reconcile(items){
       const current=new Map(items.map(item=>[item.id,item.sessionId]))
       for(const entry of entries.values())if(current.get(entry.id)!==entry.sessionId)release(entry)

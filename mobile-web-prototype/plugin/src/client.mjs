@@ -4,6 +4,7 @@ import {createMobileNavigation} from './controller.mjs'
 import {createLayoutPreference} from './preference.mjs'
 import {createRefreshLoop} from './refresh-loop.mjs'
 import {createComposerKeyboard} from './composer-keyboard.mjs'
+import {clearMobileAssetCache} from '../web-startup.mjs'
 import {createPhoneController} from './phone-controller.mjs'
 import {WebAccessPanel} from './phone-access.mjs'
 import {registerMobileAccessProvider} from './mobile-access-registry.mjs'
@@ -93,14 +94,14 @@ export function apply(ctx){
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
     let cacheRelease
     const polling=createRefreshLoop({enabled:mobileActive,refresh:()=>{if(!controller.snapshot().loading)return controller.refresh()}})
-    const cacheMode=()=>controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden)
+    const cacheMode=()=>{controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden);if(!preference.snapshot())void clearMobileAssetCache(window)}
     const delayCacheRelease=()=>{clearTimeout(cacheRelease);cacheRelease=setTimeout(()=>controller.setCacheEnabled(false),30000)}
     const viewport=()=>{const v=window.visualViewport;document.documentElement.style.setProperty('--dsm-height',(v?.height??innerHeight)+'px');document.documentElement.style.setProperty('--dsm-top',(v?.offsetTop??0)+'px')}
     const poll=()=>polling.sync()
     const offPreference=preference.subscribe(()=>{cacheMode();poll();if(mobileActive())void controller.restore()})
     const recover=()=>{clearTimeout(cacheRelease);viewport();cacheMode();poll();if(mobileActive())void controller.restore()}
     const mediaChange=()=>{cacheMode();poll();if(mobileActive())void controller.restore()}
-    const visible=()=>{if(document.hidden){suspended=true;poll();delayCacheRelease()}else if(suspended){suspended=false;recover()}}
+    const visible=()=>{if(document.hidden){suspended=true;controller.pauseWarmup();poll();delayCacheRelease()}else if(suspended){suspended=false;recover()}}
     const hide=()=>{suspended=true;poll();clearTimeout(cacheRelease);controller.setCacheEnabled(false)}
     const show=event=>{if(event.persisted&&suspended){suspended=false;recover()}}
     const resume=()=>{if(suspended){suspended=false;recover()}}
