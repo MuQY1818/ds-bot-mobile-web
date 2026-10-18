@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="Build and checks"></a>
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.1"><img src="https://img.shields.io/badge/release-0.4.1-blue" alt="Version 0.4.1"></a>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.2"><img src="https://img.shields.io/badge/release-0.4.2-blue" alt="Version 0.4.2"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 license"></a>
 </p>
 
@@ -14,7 +14,7 @@
 
 DS Bot Mobile Web is a mobile interface plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) and [DS Bot](https://github.com/Fei2411/DeepSeek-Bot). It adds phone navigation, a team view and QR sign-in to your existing installation, sharing the Bots, group chats and message history on your computer.
 
-> **Current version `0.4.1`**: targets DSH `0.2.1-rc.2` with DS Bot `0.1.7` and has been installed on an actual host through the official plugin manager. Install the plugin on the computer and access it through a phone browser. See [development status](docs/status.md) for the limits of Safari device and network validation. For a native client, see [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
+> **Current version `0.4.2`**: targets DSH `0.2.1-rc.2` with DS Bot `0.1.7` and dismisses the mobile composer keyboard when a valid send begins. Host installation and device validation are recorded separately. Install the plugin on the computer and access it through a phone browser. See [development status](docs/status.md) for the limits of Safari device and network validation. For a native client, see [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
 
 ## Preview
 
@@ -64,7 +64,7 @@ The Web plugin is usable. The recent package-rename configuration regression has
 
 ### Install and sign in
 
-1. On the computer, download `ds-bot-mobile-web-0.4.1.tgz` and `SHA256SUMS` from the [v0.4.1 release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.1). Verify the archive using the [installation guide](docs/installation.md#2-下载发布包并核对-sha-256).
+1. On the computer, download `ds-bot-mobile-web-0.4.2.tgz` and `SHA256SUMS` from the [v0.4.2 release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.2). Verify the archive using the [installation guide](docs/installation.md#2-下载发布包并核对-sha-256).
 2. Install the local `.tgz` through your existing DSH plugin manager. Confirm the package and version, enable it and refresh. Restart if the host requests it.
 3. In the desktop DS Bot account menu, select **Phone access → Web**. If needed, enter an HTTPS address you have already configured.
 4. Connect the phone to the appropriate network, scan the QR code and sign in through the browser.

@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="构建与检查"></a>
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.1"><img src="https://img.shields.io/badge/release-0.4.1-blue" alt="版本 0.4.1"></a>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.2"><img src="https://img.shields.io/badge/release-0.4.2-blue" alt="版本 0.4.2"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 许可"></a>
 </p>
 
@@ -14,7 +14,7 @@
 
 DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 的移动界面插件。它在现有会话上提供适合手机的导航、团队视图和扫码登录入口，共用电脑上的 Bot、群聊与消息历史。
 
-> **当前版本 `0.4.1`**：面向 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`，已通过正式管理器安装到实际宿主。插件安装在电脑上，手机使用浏览器访问；Safari 真机网络场景的验证边界见[开发状态](docs/status.md)。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
+> **当前版本 `0.4.2`**：面向 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`，新增手机有效发送后收起键盘；宿主安装与设备验证分别记录。插件安装在电脑上，手机使用浏览器访问；Safari 真机网络场景的验证边界见[开发状态](docs/status.md)。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 
@@ -64,7 +64,7 @@ Web 插件已可使用；近期包名迁移导致的入口配置失效已修复�
 
 ### 安装与登录
 
-1. 在电脑上从 [v0.4.1 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.1) 下载 `ds-bot-mobile-web-0.4.1.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
+1. 在电脑上从 [v0.4.2 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.2) 下载 `ds-bot-mobile-web-0.4.2.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
 2. 在现有 DSH 的插件管理器中安装本地 `.tgz`，确认包名和版本，启用后刷新页面；如宿主要求重启，按提示操作。
 3. 在电脑端 DS Bot 账户菜单选择 **手机访问 → Web**。入口未配置时，填写已准备好的 HTTPS 地址。
 4. 手机接入对应网络，扫描二维码，并在浏览器中完成登录。

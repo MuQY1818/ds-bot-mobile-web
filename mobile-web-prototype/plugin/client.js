@@ -1847,6 +1847,7 @@ var require_qrcode = __commonJS({
 // src/client.mjs
 var client_exports = {};
 __export(client_exports, {
+  ComposerKeyboard: () => ComposerKeyboard,
   MobileChrome: () => MobileChrome,
   MobileSettings: () => MobileSettings,
   apply: () => apply,
@@ -2292,6 +2293,36 @@ function createRefreshLoop({ refresh, enabled, intervalMs = 5e3, setTimer = setT
     closed = true;
     clear();
   } };
+}
+
+// src/composer-keyboard.mjs
+function createComposerKeyboard({ anchor, enabled, document: document2 }) {
+  let initialized = false;
+  const seen = /* @__PURE__ */ new Set();
+  return {
+    update(submissions = []) {
+      let started = false;
+      const current = /* @__PURE__ */ new Set();
+      for (const submission of submissions) {
+        if (typeof submission?.requestId !== "string") continue;
+        current.add(submission.requestId);
+        if (seen.has(submission.requestId)) continue;
+        if (initialized) started = true;
+        seen.add(submission.requestId);
+      }
+      initialized = true;
+      for (const id of seen) {
+        if (seen.size <= 256) break;
+        if (!current.has(id)) seen.delete(id);
+      }
+      if (!started || !enabled()) return false;
+      const card = anchor()?.closest("[data-composer-card]");
+      const input = card?.querySelector("[data-composer-input]");
+      if (!input || document2.activeElement !== input) return false;
+      input.blur();
+      return true;
+    }
+  };
 }
 
 // src/phone-controller.mjs
@@ -4034,6 +4065,15 @@ function MobileSettings({ preference, access, view }) {
     (0, import_react4.createElement)("button", { type: "button", onClick: access.open }, "手机访问")
   );
 }
+function ComposerKeyboard({ sessionId, useSession, keyboardActive }) {
+  const anchor = (0, import_react4.useRef)(null), state = (0, import_react4.useRef)(null);
+  const submissions = useSession((snapshot) => snapshot.pendingSubmissions);
+  if (state.current?.sessionId !== sessionId) state.current = { sessionId, observer: createComposerKeyboard({ anchor: () => anchor.current, enabled: keyboardActive, document }) };
+  (0, import_react4.useLayoutEffect)(() => {
+    state.current.observer.update(submissions);
+  }, [sessionId, submissions]);
+  return (0, import_react4.createElement)("span", { ref: anchor, hidden: true, "aria-hidden": true });
+}
 function MobileChrome({ controller, preference }) {
   const state = (0, import_react4.useSyncExternalStore)(controller.subscribe, controller.snapshot, controller.snapshot);
   const enabled = (0, import_react4.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
@@ -4111,6 +4151,10 @@ function apply(ctx) {
   const controller = createMobileNavigation({ api, workspace: ctx.uiWorkspace, sessions: ctx.sessions, connection: ctx.connection, history: window.history });
   const phone = createPhoneController({ appRoot: new URL("./", location.href).href, form: ctx.configForms.get("mobile-layout-local") });
   const access = registerMobileAccessProvider({ id: "web", label: "Web", order: 10, render: () => (0, import_react4.createElement)(WebAccessPanel, { phone }) });
+  const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
+  let suspended = false;
+  const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && !suspended;
+  const keyboardActive = () => mobileActive() && controller.snapshot().page === "chat";
   ctx.effect(() => () => {
     access.dispose();
     phone.dispose();
@@ -4122,9 +4166,7 @@ function apply(ctx) {
     document.head.append(style);
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";
-    let cacheRelease, suspended = false;
-    const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
-    const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && !suspended;
+    let cacheRelease;
     const polling = createRefreshLoop({ enabled: mobileActive, refresh: () => {
       if (!controller.snapshot().loading) return controller.refresh();
     } });
@@ -4225,6 +4267,7 @@ function apply(ctx) {
     };
   });
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference }) }, MobileChrome));
+  ctx.slots.inject("conversation.input.right", () => ctx.slots.register({ name: "conversation.input.right", id: "mobile-composer-keyboard", order: 1e3, inject: () => ({ keyboardActive }) }, ComposerKeyboard));
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-phone-access", order: 41, inject: () => ({ access }) }, MobileAccessHost));
   ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "ds-bot-mobile-web", inject: () => ({ preference, access }) }, MobileSettings));
 }
