@@ -1,10 +1,10 @@
 # DS Bot 移动布局插件
 
-`ds-bot-mobile-web@0.2.0` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
+`ds-bot-mobile-web@0.3.0` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
 
 ## 安装与更新
 
-在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `ds-bot-mobile-web-0.2.0.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
+在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `ds-bot-mobile-web-0.3.0.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
 
 完整教程：[安装](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/installation.md)、[远程访问](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/remote-access.md)、[故障排查](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/troubleshooting.md)。
 
@@ -22,7 +22,7 @@ DS Bot 账户菜单暂无公开菜单项插槽。独立入口通过限定的 `.b
 
 ## 布局开关与清理
 
-DSH 插件设置页的“启用手机布局”，与手机聊天页的“原版／手机布局”使用同一偏好，只保存在当前浏览器。停用 bundle 会移除界面、样式、监听、定时器和订阅，注销手机访问路由，恢复 viewport。浏览器布局偏好与宿主中保存的干净入口地址会保留。
+在官方插件管理器的本包详情页调整“启用手机布局”；选择保存在当前浏览器。聊天页已取消“原版”布局切换按钮。停用 bundle 会移除界面、样式、监听、定时器和订阅，注销手机访问路由，恢复 viewport。浏览器布局偏好与宿主中保存的干净入口地址会保留。
 
 ## 构建
 

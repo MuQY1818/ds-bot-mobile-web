@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="Build and checks"></a>
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-0.2.0-blue" alt="Version 0.2.0"></a>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-0.3.0-blue" alt="Version 0.3.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 license"></a>
 </p>
 
@@ -14,13 +14,24 @@
 
 DS Bot Mobile Web is a mobile interface plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) and [DS Bot](https://github.com/Fei2411/DeepSeek-Bot). It adds phone navigation, a team view and QR sign-in to your existing installation, sharing the Bots, group chats and message history on your computer.
 
-> **Preview release**: `0.2.0` targets DSH `0.2.1-rc.2` with DS Bot `0.1.7`. Install the plugin on the computer and access it through a phone browser. For a native client, see [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
+> **Preview release**: `0.3.0` targets DSH `0.2.1-rc.2` with DS Bot `0.1.7`. Install the plugin on the computer and access it through a phone browser. For a native client, see [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
 
 ## Preview
 
-![Desktop phone-access panel](docs/images/phone-access.png)
+<p align="center">
+  <img src="docs/images/conversations.png" width="230" alt="Mobile Web conversation list">
+  <img src="docs/images/chat.png" width="230" alt="Mobile Web direct conversation">
+  <img src="docs/images/group.png" width="230" alt="Mobile Web group author attribution">
+</p>
 
-*Desktop QR entry, captured in an isolated demo with an example domain and a demonstration QR code.*
+*Actual Web UI, captured against an isolated mock host and synthetic team. See [design notes](docs/design.md).*
+
+<details>
+  <summary>Desktop QR sign-in</summary>
+
+![Desktop phone-access panel with a demonstration QR](docs/images/phone-access.png)
+
+</details>
 
 ## Features
 
@@ -28,7 +39,8 @@ DS Bot Mobile Web is a mobile interface plugin for [DeepSeek Harness](https://gi
 - **Existing chat features**: reuses the DS Bot renderer and composer, including streaming replies, groups and interactive cards.
 - **QR sign-in**: opens a phone-access panel from the desktop account menu using the host's authenticated URL.
 - **Bot identity**: preserves character avatars, work status and group member combinations.
-- **Layout controls**: switch back to the original layout on mobile; wide screens keep the desktop layout. Disable the plugin to restore the interface.
+- **Consistent chat design**: compact lists, centered identity, black user bubbles and quiet Bot bubbles. Wide screens retain the desktop layout.
+- **Faster return navigation**: retains the host's canonical in-memory sessions for the 3 most recent conversations for up to 5 minutes; no separate transcript storage.
 
 ## Development status
 
@@ -47,7 +59,7 @@ The Web plugin is usable. The recent package-rename configuration regression has
 
 ### Install and sign in
 
-1. On the computer, download `ds-bot-mobile-web-0.2.0.tgz` and `SHA256SUMS` from the [v0.2.0 release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0). Verify the archive using the [installation guide](docs/installation.md#2-下载发布包并核对-sha-256).
+1. On the computer, download `ds-bot-mobile-web-0.3.0.tgz` and `SHA256SUMS` from the [v0.3.0 release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0). Verify the archive using the [installation guide](docs/installation.md#2-下载发布包并核对-sha-256).
 2. Install the local `.tgz` through your existing DSH plugin manager. Confirm the package and version, enable it and refresh. Restart if the host requests it.
 3. In the desktop DS Bot account menu, select **Phone access**. If needed, enter an HTTPS address you have already configured.
 4. Connect the phone to the appropriate network, scan the QR code and sign in through the browser.
@@ -61,11 +73,13 @@ Read [remote access](docs/remote-access.md) if you do not yet have a network end
 | | Mobile Web | Mobile App |
 | --- | --- | --- |
 | Client | Phone browser | Native iOS / Android client |
-| Computer component | This Web plugin | Separate Mobile Bridge |
+| Computer component | This Web plugin | Mobile App pairing plugin + Mobile Bridge |
 | Authentication | DSH browser sign-in URL | Owner-approved device pairing |
 | Use case | Access to the existing DS Bot Web interface | Native navigation, device authorization and local caching |
 
 The projects are maintained separately and connect to the existing team. Mobile Web does not require Mobile Bridge.
+
+There are three independently managed desktop plugins: `ds-bot-mobile-web` supplies the browser interface and sign-in, `ds-bot-mobile-app` supplies native App pairing and device-management UI, and `ds-bot-mobile-bridge` supplies device authentication and transport. The latter two live in the [App repository](https://github.com/MuQY1818/ds-bot-mobile-app/blob/main/docs/plugins.md). Disabling the pairing UI leaves Bridge and existing device access running.
 
 ## Development
 
@@ -90,7 +104,8 @@ The detailed guides are currently in Simplified Chinese.
 | --- | --- |
 | [Installation](docs/installation.md) | Verification, installation, upgrades and rollback |
 | [Remote access](docs/remote-access.md) | Private networking, HTTPS, domain trust and sign-in |
-| [Usage](docs/usage.md) | Navigation, QR panel and layout controls |
+| [Network options](docs/remote-connectivity.md) | ZCode relay, Tailscale and Cloudflare Tunnel |
+| [Usage](docs/usage.md) | Navigation, QR panel and connection status |
 | [Troubleshooting](docs/troubleshooting.md) | Connection, authentication and layout problems |
 | [Architecture](docs/architecture.md) | Host APIs, credential boundaries and menu adaptation |
 | [Compatibility and validation](docs/validation.md) | Verified scenarios and platform limitations |
@@ -98,7 +113,7 @@ The detailed guides are currently in Simplified Chinese.
 
 ## Compatibility and credentials
 
-The layout uses public plugin APIs and some host DOM markers. The account-menu entry uses a separate DOM adapter. Recheck compatibility after upgrading DSH or DS Bot; if the menu entry fails, open the panel from **Mobile layout** in DSH plugin settings.
+The layout uses public plugin APIs and some host DOM markers. The account-menu entry uses a separate DOM adapter. Recheck compatibility after upgrading DSH or DS Bot; if the menu entry fails, open the panel from the `ds-bot-mobile-web` bundle details in the plugin manager.
 
 The complete iPhone Safari keyboard, safe-area, lock-screen and network-transition matrix still requires device validation. See the [validation record](docs/validation.md).
 

@@ -8,6 +8,24 @@
 
 `mobile-host-adapter/conversation-feed.mjs` 是可选协议封装，只在已有 DSH 客户端组合中处理 retain、ready、逐节点订阅、翻页与释放。它不是一个可独立部署的静态聊天运行时，手机 Web 不需要另装原生 bridge。
 
+## 会话历史缓存
+
+v0.3.0 使用公开 `sessions.retain()` 为最近 3 个逻辑会话增加引用，5 分钟无访问后按 LRU / TTL 释放。用户切换会话时，宿主的规范 Client Session 仍可复用，不再因为最后一个视图引用释放而销毁并重新加载整段历史。缓存只有引用，不复制消息或存储凭据。
+
+每次打开仍请求服务器确认 Bot / 群的当前 Session；Session 轮换、删除、401 / 403 及打开失败会释放对应缓存。手机布局关闭、进入桌面宽屏、页面卸载或冻结时全部释放；普通后台停留超过 30 秒后释放。短暂切换到其他应用不会立即清空缓存。
+
+这是有界内存缓存，不是离线数据库。刷新页面、Safari 回收页面、长期后台、超过最近 3 项或 5 分钟后仍需重新加载。流式连接和恢复由宿主负责，缓存不重发用户输入。
+
+## 三插件分工
+
+| 插件 | 职责 | 运行依赖 |
+| --- | --- | --- |
+| `ds-bot-mobile-web` | 手机浏览器界面、DSH 浏览器登录入口 | DSH + DS Bot |
+| `ds-bot-mobile-app` | 原生 App 配对、批准与设备管理 UI | 操作时需要 Mobile Bridge |
+| `ds-bot-mobile-bridge` | 设备凭据、HTTP / WebSocket 协议与撤销 | DSH + DS Bot |
+
+三个插件独立启停。App 插件和 Bridge 的源码、安装包在 [App 仓库](https://github.com/MuQY1818/ds-bot-mobile-app)；原生 iOS / Android 客户端是手机应用。两种登录二维码不可互换。
+
 ## 手机访问入口
 
 v0.1.4 的账户菜单没有修改原 DS Bot 源码。DS Bot 当前未提供公开的账户菜单项插槽，因此插件只观察 `document.body` 的直接子节点，在 `.bt-account-menu` 出现时加入一个自己的入口，关闭或停用时移除。它不观察整棵流式消息 DOM，也不复制原菜单或覆盖原操作。

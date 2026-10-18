@@ -1973,7 +1973,100 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {})
   });
 }
 
+// src/session-retention.mjs
+function createSessionRetention({ sessions, now = Date.now, maxEntries = 3, ttlMs = 5 * 60 * 1e3, setTimer = setTimeout, clearTimer = clearTimeout }) {
+  const entries = /* @__PURE__ */ new Map();
+  let enabled = false, closed = false, timer;
+  const release = (entry) => {
+    if (entries.get(entry.id) !== entry) return;
+    entries.delete(entry.id);
+    try {
+      entry.reference.release();
+    } catch {
+    }
+  };
+  const schedule = () => {
+    if (timer !== void 0) clearTimer(timer);
+    timer = void 0;
+    if (!entries.size || closed) return;
+    const next = Math.min(...[...entries.values()].map((entry) => entry.visitedAt + ttlMs));
+    timer = setTimer(() => {
+      timer = void 0;
+      prune();
+      schedule();
+    }, Math.max(0, next - now()));
+    timer?.unref?.();
+  };
+  const prune = () => {
+    for (const entry of entries.values()) if (now() - entry.visitedAt >= ttlMs) release(entry);
+  };
+  const clear = () => {
+    if (timer !== void 0) clearTimer(timer);
+    timer = void 0;
+    for (const entry of entries.values()) release(entry);
+  };
+  const discard = (id) => {
+    const entry = entries.get(id);
+    if (entry) release(entry);
+    schedule();
+  };
+  return {
+    setEnabled(value) {
+      enabled = Boolean(value) && !closed;
+      if (!enabled) clear();
+    },
+    visit(target) {
+      if (!enabled || closed || typeof sessions.retain !== "function") return;
+      prune();
+      let entry = entries.get(target.id);
+      if (entry && entry.sessionId !== target.sessionId) {
+        release(entry);
+        entry = void 0;
+      }
+      if (entry) {
+        entry.visitedAt = now();
+        entries.delete(target.id);
+        entries.set(target.id, entry);
+        schedule();
+        return;
+      }
+      while (entries.size >= maxEntries && entries.size) release(entries.values().next().value);
+      let reference;
+      try {
+        reference = sessions.retain(target.sessionId, { source: "dsBotMobileWebRecent" });
+      } catch {
+        schedule();
+        return;
+      }
+      entry = { id: target.id, sessionId: target.sessionId, visitedAt: now(), reference };
+      entries.set(target.id, entry);
+      const failed = () => {
+        release(entry);
+        schedule();
+      };
+      Promise.resolve(reference.ready).then((binding) => {
+        if (entries.get(entry.id) === entry && binding.session.getSnapshot().openState === "error") failed();
+      }, failed).catch(failed);
+      schedule();
+    },
+    reconcile(items) {
+      const current = new Map(items.map((item) => [item.id, item.sessionId]));
+      for (const entry of entries.values()) if (current.get(entry.id) !== entry.sessionId) release(entry);
+      prune();
+      schedule();
+    },
+    discard,
+    clear,
+    close() {
+      closed = true;
+      enabled = false;
+      clear();
+    }
+  };
+}
+
 // src/controller.mjs
+var unauthorized = (error) => error?.code === "HTTP_401" || error?.code === "HTTP_403";
 function summarizeTeam(team) {
   const approvals = team.work?.approvals ?? [];
   const bots = team.bots.map((bot) => {
@@ -1984,6 +2077,7 @@ function summarizeTeam(team) {
 }
 function createMobileNavigation({ api, workspace, sessions, connection, history, now = Date.now }) {
   const listeners = /* @__PURE__ */ new Set();
+  const retention = createSessionRetention({ sessions, now });
   let state = { page: history.state?.dsMobilePage === "chat" ? "chat" : "home", tab: "chats", items: [], active: null, error: "", loading: false, query: "", connected: connection.state.getSnapshot(), lastSync: null };
   let disposed = false, nav = 0, pull = 0, controller, restoring;
   const publish = (patch) => {
@@ -2009,11 +2103,13 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     try {
       const items = typeof api.refresh === "function" ? summarizeTeam(await api.refresh(request.signal)) : await api.conversations(request.signal);
       if (disposed || issued !== pull) return;
+      retention.reconcile(items);
       publish({ items, loading: false, error: "", lastSync: now() });
       syncSelection();
     } catch (error) {
       if (disposed || issued !== pull || request.signal.aborted) return;
-      const errorText = error.code === "HTTP_401" || error.code === "HTTP_403" ? "登录已失效，请刷新原版入口重新登录。" : "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
+      if (unauthorized(error)) retention.clear();
+      const errorText = unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
       publish({ loading: false, error: errorText });
     }
   }
@@ -2023,11 +2119,15 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     try {
       const target = await api.target(id);
       if (disposed || attempt !== nav) return;
+      retention.visit(target);
       workspace.openSession(target.sessionId);
       if (state.page !== "chat") history.pushState({ ...history.state, dsMobilePage: "chat" }, "");
       publish({ active: target, page: "chat", loading: false });
     } catch (error) {
-      if (!disposed && attempt === nav) publish({ loading: false, error: "无法打开会话，请刷新列表后重试。" });
+      if (disposed || attempt !== nav) return;
+      if (unauthorized(error)) retention.clear();
+      else retention.discard(id);
+      publish({ loading: false, error: unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "无法打开会话，请刷新列表后重试。" });
     }
   }
   async function restore() {
@@ -2049,6 +2149,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     refresh,
     open,
     restore,
+    setCacheEnabled: (enabled) => retention.setEnabled(enabled),
     search: (query) => publish({ query }),
     selectTab(tab) {
       if (!["chats", "team", "connection"].includes(tab)) return;
@@ -2074,6 +2175,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
       nav++;
       pull++;
       controller?.abort();
+      retention.close();
       offSessions();
       offConnection();
       listeners.clear();
@@ -2394,83 +2496,99 @@ var phone_default = `/* AccountPhoneEntry uses DS Bot's .bt-menu button styles, 
 // src/mobile.css
 var mobile_default = `.dsm-chrome,.dsm-return{display:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){
-body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fcfcfc);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#536078);--dsm-line:var(--bt-line-2,#dce2ed);--dsm-blue:var(--bt-accent,#315bcd);--dsm-bar:calc(56px + env(safe-area-inset-top));overscroll-behavior:none}
-body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay]){position:fixed!important;inset:var(--dsm-top,0px) 0 auto!important;height:var(--dsm-height,100dvh)!important;box-sizing:border-box!important;padding-top:var(--dsm-bar)!important;grid-template-columns:0 minmax(0,1fr) 0!important;grid-template-rows:minmax(0,1fr)!important;transition:none!important}
+body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(66px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;overscroll-behavior:none}
+body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-main:#fff;--bt-bubble:#f2f2f2;--bt-sidebar:#f7f7f7;--bt-user:#070707;--bt-user-ink:#fff;--bt-ink:#141414;--bt-ink-2:#686868}
+body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929;--bt-user:#f2f2f2;--bt-user-ink:#141414}
+body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay]){position:fixed!important;inset:var(--dsm-top,0px) 0 auto!important;height:var(--dsm-height,100dvh)!important;box-sizing:border-box!important;padding-top:var(--dsm-bar)!important;grid-template-columns:0 minmax(0,1fr) 0!important;grid-template-rows:minmax(0,1fr)!important;transition:none!important;background:var(--dsm-bg)}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_sidebarCol"],body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-side]{display:none!important}
-body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_centerCol"]{grid-column:2!important;grid-row:1!important;min-width:0!important}
+body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_centerCol"]{grid-column:2!important;grid-row:1!important;min-width:0!important;background:var(--dsm-bg)!important}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-rightbar-col]{grid-column:3!important;grid-row:1!important}
 body[data-dsm-enabled][data-dsm-page=home] [class*="_centerCol"]{visibility:hidden;pointer-events:none}
 body[data-dsm-enabled] [data-slot="conversation.header"],body[data-dsm-enabled] header[class*="_header"]:has(.bt-head){display:none!important}
-body[data-dsm-enabled] [class*="_scroll"]:has(>[class*="_column"]){padding:16px 12px!important}
+body[data-dsm-enabled][data-dsm-page=chat] :is([data-slot="conversation.header"],header[class*="_header"]:has(.bt-head)){display:contents!important}
+body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-head{display:contents!important}
+body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-head>:not(.bt-pill){display:none!important}
+body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill{position:fixed!important;top:calc(var(--dsm-top,0px) + env(safe-area-inset-top) + 8px)!important;right:18px!important;left:auto!important;display:grid!important;place-items:center;width:44px!important;height:44px!important;max-width:44px!important;margin:0!important;padding:0!important;background:var(--dsm-surface)!important;border:0!important;border-radius:50%!important;box-shadow:none!important;transform:none!important;z-index:35;pointer-events:auto}
+body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill>*{display:none!important}
+body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill::after{content:'⋯';font:27px/1 -apple-system,BlinkMacSystemFont,sans-serif;color:var(--dsm-ink);margin-top:-8px}
+body[data-dsm-enabled] .bt-panel{top:calc(var(--dsm-top,0px) + var(--dsm-bar))!important;bottom:auto!important;height:calc(var(--dsm-height,100dvh) - var(--dsm-bar))!important;width:100%!important;max-width:100%!important;z-index:45;border:0!important}
+body[data-dsm-enabled] .bt-panel-grip{display:none}
+body[data-dsm-enabled] [class*="_scroll"]:has(>[class*="_column"]){padding:16px 18px!important;background:var(--dsm-bg)!important}
 body[data-dsm-enabled] [class*="_column"],body[data-dsm-enabled] [data-composer-card]{max-width:100%!important;min-width:0!important}
-body[data-dsm-enabled] [class*="_root"]:has(>[data-composer-card]){padding:6px 10px max(10px,env(safe-area-inset-bottom))!important}
+body[data-dsm-enabled] [data-conversation-scroll]{background:var(--dsm-bg)!important}
+body[data-dsm-enabled][data-bt-room] [data-composer-card] .bt-mic{background:var(--dsm-ink)!important;color:var(--dsm-bg)!important}
+body[data-dsm-enabled] .bt-msg{max-width:calc(100% - 24px)}
+body[data-dsm-enabled] .bt-astack[data-lead]>.bt-msg{max-width:100%}
+body[data-dsm-enabled] .bt-msg-line{gap:8px}
+body[data-dsm-enabled] .bt-bubble,body[data-dsm-enabled] .bt-ubody{border-radius:21px;padding:11px 15px;font-size:17px;line-height:26px}
+body[data-dsm-enabled] .bt-group-name{font-size:12px;line-height:18px;margin-left:30px;margin-bottom:4px;color:var(--dsm-secondary)}
+body[data-dsm-enabled] .bt-msg:focus-within,body[data-dsm-enabled] .bt-msg:has(.bt-tools[data-open]){padding-bottom:44px}
+body[data-dsm-enabled] .bt-tools{top:100%;left:0;margin:2px 0 0;transform:none;gap:2px;z-index:2;background:var(--dsm-bg);border-radius:14px}
+body[data-dsm-enabled] .bt-tools .bt-tool{width:44px;height:44px}
+body[data-dsm-enabled] .bt-tools::after{display:none}
+body[data-dsm-enabled] [class*="_root"]:has(>[data-composer-card]){padding:8px 12px max(12px,env(safe-area-inset-bottom))!important}
+body[data-dsm-enabled] [class*="_root"]:has(>[data-composer-card])>[class*="_dock"]:has([data-slot="conversation.composer.dock"]){display:none!important}
 body[data-dsm-enabled] [data-composer-input]{font-size:16px!important;line-height:1.5!important}
-body[data-dsm-enabled] [data-composer-card]{padding:7px!important}
+body[data-dsm-enabled] [data-composer-card]{padding:7px!important;border-radius:28px!important;background:var(--dsm-surface)!important;box-shadow:none!important;border:0!important}
 body[data-dsm-enabled] [data-composer-card]>[data-input-scroll]{min-width:0!important}
 body[data-dsm-enabled] [data-composer-card] button{min-width:44px!important;min-height:44px!important}
+body[data-dsm-enabled] [data-composer-card] :is(button[class*="_primary"],.bt-voice){background:var(--bt-user)!important;color:var(--bt-user-ink)!important;border-radius:50%!important}
 body[data-dsm-enabled] [data-composer-card] button svg{max-width:20px;max-height:20px}
 body[data-dsm-enabled] .bt-event button,body[data-dsm-enabled] .bt-msg-actions button{min-width:44px;min-height:44px}
 body[data-dsm-enabled] .bt-q input,body[data-dsm-enabled] .bt-q textarea{font-size:16px!important}
 body[data-dsm-enabled] .bt-q button,body[data-dsm-enabled] .bt-mw-card button{min-width:44px;min-height:44px;height:auto}
 body[data-dsm-enabled] .dsm-chrome{display:block;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:var(--dsm-ink);pointer-events:none}
-.dsm-chrome button,.dsm-return{min-width:44px;min-height:44px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;padding:8px 12px;cursor:pointer;touch-action:manipulation}
-.dsm-chrome button:active,.dsm-return:active{background:var(--bt-hover,#e9eefc)}
+.dsm-chrome button,.dsm-return{min-width:44px;min-height:44px;border:0;background:transparent;color:inherit;font:inherit;padding:8px 12px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.dsm-chrome button:active,.dsm-return:active{background:var(--bt-hover,#ededed)}
 .dsm-chrome button:disabled{opacity:.5;cursor:default}
-.dsm-chrome :focus-visible,.dsm-return:focus-visible{outline:3px solid var(--dsm-blue,#315bcd);outline-offset:2px}
-.dsm-bar{position:fixed;top:var(--dsm-top,0px);left:0;right:0;height:var(--dsm-bar);padding:env(safe-area-inset-top) 8px 0;display:flex;align-items:center;gap:8px;background:var(--dsm-bg);border-bottom:1px solid var(--dsm-line);pointer-events:auto;z-index:30;box-sizing:border-box}
-.dsm-bar>strong{font-size:17px;padding:0 8px}
-.dsm-current{flex:1;min-width:0;text-align:center;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dsm-current>span{display:block;font-size:11px;font-weight:400;color:var(--dsm-secondary);line-height:16px}
-.dsm-current>span[data-connected=disconnected]{color:#b65a1b}
-.dsm-home{position:fixed;top:calc(var(--dsm-top,0px) + var(--dsm-bar));left:0;right:0;height:calc(var(--dsm-height,100dvh) - var(--dsm-bar));overflow:auto;overscroll-behavior:contain;background:var(--dsm-bg);pointer-events:auto;padding:24px 16px max(24px,env(safe-area-inset-bottom));box-sizing:border-box;z-index:25}
-.dsm-intro{padding:0 8px 12px}.dsm-intro h1{font-size:26px;line-height:1.3;margin:0 0 8px}.dsm-intro p{margin:0;color:var(--dsm-secondary);font-size:14px}
-.dsm-search{display:block;padding:12px 8px;font-size:13px;color:var(--dsm-secondary)}
-.dsm-search input{display:block;width:100%;min-height:48px;padding:10px 12px;margin-top:8px;font:inherit;font-size:16px;border:1px solid var(--dsm-line);border-radius:12px;color:var(--dsm-ink);background:var(--bt-sidebar,#f3f5fa);box-sizing:border-box}
-.dsm-row{display:flex!important;width:100%;align-items:center;gap:14px;padding:16px 8px!important;text-align:left;border-radius:12px!important;min-height:84px!important}
-.dsm-avatar{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:18px;background:var(--bt-hover,#e9eefc);color:var(--dsm-blue);font-size:18px;font-weight:600}
-.dsm-row-copy{flex:1;min-width:0}.dsm-row-copy strong{display:block;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsm-row-copy small{display:block;font-size:13px;color:var(--dsm-secondary);margin-top:4px}
-.dsm-empty{padding:24px 8px;color:var(--dsm-secondary);font-size:14px}
-.dsm-foot{padding:20px 8px 0;border-top:1px solid var(--dsm-line);margin-top:20px}.dsm-foot p{font-size:12px;line-height:1.6;color:var(--dsm-secondary)}
+.dsm-chrome :focus-visible,.dsm-return:focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}
+.dsm-bar{position:fixed;top:var(--dsm-top,0px);left:0;right:0;height:var(--dsm-bar);padding:calc(8px + env(safe-area-inset-top)) 18px 8px;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:12px;background:var(--dsm-bg);pointer-events:auto;z-index:30;box-sizing:border-box}
+.dsm-bar>button{display:grid;place-items:center;padding:0;border-radius:50%;height:44px;background:var(--dsm-surface)}
+.dsm-bar>button svg{width:21px;height:21px}
+.dsm-current{min-width:0;text-align:center;font-size:20px;line-height:26px;font-weight:650;letter-spacing:-.4px}
+.dsm-current>span[data-connected]{display:block;font-size:11px;font-weight:400;color:var(--dsm-secondary);line-height:14px;letter-spacing:0}
+.dsm-current>span[data-connected=disconnected]{color:#ad501a}
+.dsm-title-mascot{display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;background:var(--dsm-surface);font-size:16px;font-weight:600;line-height:28px;max-width:100%;width:max-content;margin:0 auto 2px;padding:4px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsm-header-spacer{display:block;width:44px;height:44px}
+.dsm-home{position:fixed;top:calc(var(--dsm-top,0px) + var(--dsm-bar));left:0;right:0;height:calc(var(--dsm-height,100dvh) - var(--dsm-bar) - var(--dsm-tab-height));overflow:auto;overscroll-behavior:contain;background:var(--dsm-bg);pointer-events:auto;padding:10px 18px 24px;box-sizing:border-box;z-index:25}
+.dsm-search{position:relative;display:flex;align-items:center;margin:0 0 12px;padding:0 14px;border-radius:16px;background:var(--dsm-surface);color:var(--dsm-secondary)}
+.dsm-search>svg{width:19px;height:19px;flex:none}
+.dsm-search input{display:block;min-width:0;width:100%;min-height:48px;margin:0;padding:11px 10px;font:inherit;font-size:16px;border:0;border-radius:16px;color:var(--dsm-ink);background:transparent;box-sizing:border-box}
+.dsm-row{display:flex!important;width:100%;align-items:center;gap:13px;padding:14px 0!important;text-align:left;min-height:84px!important;border-radius:14px;position:relative}
+.dsm-avatar{display:grid;place-items:center;flex:none;width:48px;height:48px;background:transparent;overflow:visible}
+.dsm-row-copy{flex:1;min-width:0}
+.dsm-row-copy strong{display:flex;align-items:center;gap:7px;font-size:18px;line-height:25px;font-weight:600;letter-spacing:-.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsm-main-badge{font-size:10px;line-height:17px;font-weight:500;letter-spacing:0;color:var(--dsm-secondary);background:var(--dsm-surface);padding:0 5px;border-radius:5px;flex:none}
+.dsm-row-copy small{display:block;font-size:14px;line-height:21px;color:var(--dsm-secondary);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.dsm-row-status{flex:none;width:8px}
+.dsm-row-status[data-running]>span{display:block;width:7px;height:7px;background:var(--bt-green,#00a45c);border-radius:50%}
+.dsm-empty{padding:32px 8px;color:var(--dsm-secondary);font-size:14px;line-height:22px}
+.dsm-section-heading{display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px}
+.dsm-section-heading h1{font-size:22px;letter-spacing:-.4px;margin:0;font-weight:650}
+.dsm-section-heading>span{font-size:13px;color:var(--dsm-secondary)}
+.dsm-tabs{display:flex;align-items:flex-start;justify-content:space-around;position:fixed;left:0;right:0;top:calc(var(--dsm-top,0px) + var(--dsm-height,100dvh) - var(--dsm-tab-height));height:var(--dsm-tab-height);padding:5px 14px env(safe-area-inset-bottom);background:var(--dsm-bg);border-top:.5px solid var(--dsm-line);pointer-events:auto;box-sizing:border-box;z-index:30}
+.dsm-tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:54px;border-radius:14px;font-size:11px;color:var(--dsm-secondary);padding:5px 12px}
+.dsm-tabs button[aria-current=page]{color:var(--dsm-ink);font-weight:650}
+.dsm-tabs button[aria-current=page] svg{stroke-width:2}
+.dsm-tabs button svg{width:23px;height:23px}
+.dsm-settings{padding:16px 0 20px}
+.dsm-connection-symbol{width:64px;height:64px;margin:4px auto 16px;border-radius:22px;display:grid;place-items:center;color:var(--dsm-ink);background:var(--dsm-surface)}
+.dsm-connection-symbol svg{width:30px;height:30px}
+.dsm-connection-symbol[data-connected=disconnected]{color:#ad501a}
+.dsm-settings>h1{text-align:center;font-size:25px;line-height:1.4;margin:0 0 8px}
+.dsm-lead{text-align:center;font-size:14px;line-height:1.6;color:var(--dsm-secondary);margin:0 0 30px}
+.dsm-details{margin:0 0 16px;border:1px solid var(--dsm-line);border-radius:18px;padding:0 16px}
+.dsm-details>div{display:flex;justify-content:space-between;gap:12px;padding:16px 0;font-size:14px}
+.dsm-details>div+div{border-top:.5px solid var(--dsm-line)}
+.dsm-details dt{color:var(--dsm-secondary)}.dsm-details dd{margin:0;text-align:right;font-weight:550}
+.dsm-setting-actions{display:flex;gap:12px;margin-bottom:28px}
+.dsm-setting-actions button{flex:1;background:var(--dsm-surface);color:var(--dsm-ink);font-size:14px;border-radius:14px;min-height:48px}
+.dsm-settings>h2{font-size:13px;font-weight:500;color:var(--dsm-secondary);margin:0 12px 10px}
+.dsm-setting-row{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--dsm-line)!important;border-radius:16px!important;padding:16px!important;font-size:14px!important;min-height:54px!important}
+.dsm-setting-note{font-size:12px;line-height:1.7;color:var(--dsm-secondary);padding:0 8px;margin-top:22px}
 .dsm-error{position:fixed;top:calc(var(--dsm-top,0px) + var(--dsm-bar));left:8px;right:8px;background:#fff1dc;color:#704509;font-size:14px;border-radius:12px;padding:8px 12px;z-index:40;pointer-events:auto;box-shadow:0 2px 12px #0002}
-.dsm-return{display:block;position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:12px;background:var(--bt-main,#fff);color:var(--bt-ink,#141414);border:1px solid var(--bt-line-2,#dce2ed);pointer-events:auto;z-index:30;font-size:14px;box-shadow:0 2px 12px #0001}
-}
-@media(max-width:767px),(max-width:1024px) and (max-height:500px){
-body[data-dsm-enabled]{--dsm-tab-height:calc(62px + env(safe-area-inset-bottom));--dsm-blue:#3964fe}
-body[data-dsm-enabled][data-ds-dark-theme]{--dsm-blue:#a8bfff}
-.dsm-bar{border-bottom:0;background:var(--dsm-bg);padding-inline:12px}
-.dsm-profile{font-size:12px!important;font-weight:750!important;color:var(--dsm-blue)!important;background:var(--bt-hover,#edf3fe)!important;border-radius:16px!important;letter-spacing:-.5px}
-.dsm-bar button{display:grid;place-items:center;flex:none}
-.dsm-current{font-size:17px;letter-spacing:-.25px}.dsm-current>span{font-size:11px;margin-top:1px}.dsm-mode-switch{font-size:13px!important;color:var(--dsm-secondary)!important}
-.dsm-home{height:calc(var(--dsm-height,100dvh) - var(--dsm-bar) - var(--dsm-tab-height));padding:12px 12px 24px}
-.dsm-chief{display:flex;flex-direction:column;align-items:center;gap:7px;margin:8px auto 18px;padding:12px 32px 14px!important;width:max-content;max-width:100%;background:transparent!important}
-.dsm-chief>.dsm-chief-avatar{width:72px;height:72px;font-size:30px;border-radius:25px;background:color-mix(in srgb,var(--dsm-blue) 10%,var(--dsm-bg));margin-bottom:4px;color:var(--dsm-blue)}
-.dsm-chief>strong{font-size:20px;font-weight:650;line-height:1.3}.dsm-chief>small{font-size:13px;color:var(--dsm-secondary)}
-.dsm-search{position:relative;display:flex;align-items:center;margin:0 4px 12px;padding:0 12px;border-radius:14px;background:var(--bt-sidebar,#f3f5fa);color:var(--dsm-secondary)}
-.dsm-search>svg{width:19px;height:19px;flex:none}.dsm-search input{min-width:0;margin:0;padding:12px 10px;background:transparent;border:0;min-height:48px;border-radius:12px;outline-offset:0}
-.dsm-row{border-radius:0!important;padding:14px 8px!important;min-height:88px!important;position:relative}.dsm-row::after{content:'';position:absolute;left:70px;right:8px;bottom:0;height:.5px;background:var(--dsm-line);opacity:.55}
-.dsm-avatar{width:50px;height:50px;border-radius:19px;background:color-mix(in srgb,var(--dsm-blue) 8%,var(--dsm-bg));color:var(--dsm-blue)}
-.dsm-avatar[data-kind=room]{background:var(--bt-bubble,#eeeeee);color:var(--dsm-ink)}
-.dsm-row-copy strong{font-size:16px;line-height:1.4}.dsm-row-copy small{font-size:13px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.dsm-chevron{font-size:24px;color:var(--dsm-secondary);opacity:.5}
-.dsm-list-foot{text-align:center;color:var(--dsm-secondary);font-size:12px;margin:28px 8px 8px;opacity:.8}
-.dsm-section-heading{display:flex;align-items:center;justify-content:space-between;padding:14px 8px 12px}.dsm-section-heading h1{font-size:24px;letter-spacing:-.5px;margin:0;font-weight:700}.dsm-section-heading>span{font-size:13px;color:var(--dsm-secondary)}
-.dsm-tabs{display:flex;align-items:flex-start;justify-content:space-around;position:fixed;left:0;right:0;top:calc(var(--dsm-top,0px) + var(--dsm-height,100dvh) - var(--dsm-tab-height));height:var(--dsm-tab-height);padding:5px 12px env(safe-area-inset-bottom);background:var(--dsm-bg);border-top:.5px solid var(--dsm-line);pointer-events:auto;box-sizing:border-box;z-index:30}
-.dsm-tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border-radius:12px;font-size:11px;color:var(--dsm-secondary);padding:5px 12px}
-.dsm-tabs button[aria-current=page]{color:var(--dsm-blue);font-weight:650}.dsm-tabs button[aria-current=page] svg{stroke-width:2}.dsm-tabs button svg{width:23px;height:23px}
-.dsm-settings{padding:16px 8px 20px}.dsm-connection-symbol{width:72px;height:72px;margin:4px auto 16px;border-radius:25px;display:grid;place-items:center;color:var(--dsm-blue);background:color-mix(in srgb,var(--dsm-blue) 10%,var(--dsm-bg))}.dsm-connection-symbol svg{width:34px;height:34px}.dsm-connection-symbol[data-connected=disconnected]{color:#b65a1b}
-.dsm-settings>h1{text-align:center;font-size:25px;line-height:1.4;margin:0 0 8px}.dsm-lead{text-align:center;font-size:14px;line-height:1.6;color:var(--dsm-secondary);margin:0 0 30px}
-.dsm-details{margin:0 0 16px;border:1px solid var(--dsm-line);border-radius:18px;padding:0 16px}.dsm-details>div{display:flex;justify-content:space-between;gap:12px;padding:16px 0;font-size:14px}.dsm-details>div+div{border-top:.5px solid var(--dsm-line)}.dsm-details dt{color:var(--dsm-secondary)}.dsm-details dd{margin:0;text-align:right;font-weight:550}
-.dsm-setting-actions{display:flex;gap:12px;margin-bottom:28px}.dsm-setting-actions button{flex:1;background:var(--bt-hover,#edf3fe);color:var(--dsm-blue);font-size:14px;border-radius:14px;min-height:48px}
-.dsm-settings>h2{font-size:13px;font-weight:500;color:var(--dsm-secondary);margin:0 12px 10px}.dsm-setting-row{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--dsm-line)!important;border-radius:16px!important;padding:16px!important;font-size:14px!important;min-height:54px!important}.dsm-setting-note{font-size:12px;line-height:1.7;color:var(--dsm-secondary);padding:0 8px;margin-top:22px}
+.dsm-return{display:block;position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:12px;background:var(--bt-main,#fff);color:var(--bt-ink,#141414);border:1px solid var(--bt-line-2,#ddd);border-radius:99px;pointer-events:auto;z-index:30;font-size:14px}
 .dsm-sr{position:absolute;width:1px;height:1px;padding:0;clip:rect(0,0,0,0);overflow:hidden;white-space:nowrap}
-body[data-dsm-enabled] [data-composer-card]{border-radius:24px!important}
-body[data-dsm-enabled] [data-composer-card] button[class*="_primary"]{background:#3964fe!important;color:#fff!important}
-body[data-dsm-enabled]{--dsh-content-font-size:16px!important}
-body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-user:#edf3fe;--bt-user-ink:#182238}
-body[data-dsm-enabled][data-ds-dark-theme]{--bt-user:#333333;--bt-user-ink:#ffffff}
-}
-@media(max-width:767px),(max-width:1024px) and (max-height:500px){
-.dsm-avatar,.dsm-chief>.dsm-chief-avatar,.dsm-avatar[data-kind=room]{background:transparent!important;overflow:visible!important;border-radius:0}
-.dsm-title-mascot{display:flex!important;align-items:center;justify-content:center;gap:8px;font-size:16px!important;font-weight:600!important;color:var(--dsm-ink)!important;line-height:28px!important;margin:0!important}
 }
 @media(prefers-reduced-motion:reduce){.dsm-chrome *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 `;
@@ -3678,7 +3796,7 @@ function RoomAvatar({ room, roster, size = 36 }) {
 // src/client.mjs
 var inject = ["slots", "uiWorkspace", "sessions", "connection", "configForms"];
 var connectionLabel = (state) => state === "connected" ? "已连接" : state === "disconnected" ? "已离线" : "正在连接";
-var iconPaths = { chat: ["M5 4h14v11H9l-4 4V4Z"], team: ["M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M16 4a4 4 0 0 1 0 8", "M22 20v-2a4 4 0 0 0-3-3.87", "M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"], connection: ["M3 9a15 15 0 0 1 18 0", "M6 12a10 10 0 0 1 12 0", "M9 15a5 5 0 0 1 6 0", "M12 19h.01"], back: ["m14 5-7 7 7 7"], search: ["M21 21l-5-5", "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0"] };
+var iconPaths = { chat: ["M5 4h14v11H9l-4 4V4Z"], team: ["M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M16 4a4 4 0 0 1 0 8", "M22 20v-2a4 4 0 0 0-3-3.87", "M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"], settings: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8", "M12 2v2", "M12 20v2", "M2 12h2", "M20 12h2", "m5 5 1.5 1.5", "m17.5 17.5 1.5 1.5", "m5 19 1.5-1.5", "m17.5 6.5 1.5-1.5"], connection: ["M3 9a15 15 0 0 1 18 0", "M6 12a10 10 0 0 1 12 0", "M9 15a5 5 0 0 1 6 0", "M12 19h.01"], back: ["m14 5-7 7 7 7"], search: ["M21 21l-5-5", "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0"] };
 function Icon({ name }) {
   return (0, import_react3.createElement)("svg", { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...(iconPaths[name] || []).map((d, i) => (0, import_react3.createElement)("path", { d, key: i })));
 }
@@ -3688,12 +3806,12 @@ function Mascot({ item, items, size = 48 }) {
 }
 function MobileSettings({ preference, phone, view }) {
   const enabled = (0, import_react3.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
-  if (view === "summary") return "手机会话布局、扫码登录与原版界面切换。";
+  if (view === "summary") return "手机会话界面与扫码登录入口。";
   return (0, import_react3.createElement)(
     "div",
     null,
     (0, import_react3.createElement)("label", null, (0, import_react3.createElement)("input", { type: "checkbox", "aria-label": "启用手机布局", checked: enabled, onChange: (event) => preference.set(event.target.checked) }), " 启用手机布局"),
-    (0, import_react3.createElement)("p", null, "仅保存在当前浏览器。关闭后恢复原版布局，可随时重新开启。"),
+    (0, import_react3.createElement)("p", null, "界面偏好仅保存在当前浏览器。"),
     (0, import_react3.createElement)("button", { type: "button", onClick: () => phone.open() }, "手机访问")
   );
 }
@@ -3717,14 +3835,13 @@ function MobileChrome({ controller, preference }) {
   if (!enabled) return (0, import_react3.createElement)("button", { className: "dsm-return", onClick: () => setEnabled(true) }, "手机布局");
   const isChat = state.page === "chat", status = connectionLabel(state.connected);
   const results = state.items.filter((item) => (state.tab !== "team" || item.kind === "bot") && item.name.toLowerCase().includes(state.query.toLowerCase()));
-  const chief = state.tab === "chats" && !state.query ? results.find((item) => item.isMain) : null;
   const titles = { chats: "DS Bot", team: "团队", connection: "连接" };
   const row = (item) => (0, import_react3.createElement)(
     "button",
     { key: item.id, className: "dsm-row", onClick: () => controller.open(item.id) },
     (0, import_react3.createElement)("span", { className: "dsm-avatar", "data-kind": item.kind, "data-bot-id": item.id }, (0, import_react3.createElement)(Mascot, { item, items: state.items })),
-    (0, import_react3.createElement)("span", { className: "dsm-row-copy" }, (0, import_react3.createElement)("strong", null, item.name), (0, import_react3.createElement)("small", null, item.preview || item.role || (item.kind === "room" ? "团队群聊" : "开始或继续对话"))),
-    (0, import_react3.createElement)("span", { className: "dsm-chevron", "aria-hidden": true }, "›")
+    (0, import_react3.createElement)("span", { className: "dsm-row-copy" }, (0, import_react3.createElement)("strong", null, item.name, item.isMain ? (0, import_react3.createElement)("span", { className: "dsm-main-badge" }, "主 Bot") : null), (0, import_react3.createElement)("small", null, item.preview || item.role || (item.kind === "room" ? "团队群聊" : "开始或继续对话"))),
+    (0, import_react3.createElement)("span", { className: "dsm-row-status", "data-running": item.running || void 0, "aria-label": item.running ? "正在工作" : void 0 }, item.running ? (0, import_react3.createElement)("span", null) : null)
   );
   return (0, import_react3.createElement)(
     "div",
@@ -3732,9 +3849,9 @@ function MobileChrome({ controller, preference }) {
     (0, import_react3.createElement)(
       "header",
       { className: "dsm-bar" },
-      isChat ? (0, import_react3.createElement)("button", { onClick: () => controller.home(), "aria-label": "返回会话列表" }, (0, import_react3.createElement)(Icon, { name: "back" })) : (0, import_react3.createElement)("button", { className: "dsm-profile", onClick: () => controller.selectTab("connection"), "aria-label": "查看连接与界面" }, "DS"),
+      isChat ? (0, import_react3.createElement)("button", { onClick: () => controller.home(), "aria-label": "返回会话列表" }, (0, import_react3.createElement)(Icon, { name: "back" })) : (0, import_react3.createElement)("button", { className: "dsm-profile", onClick: () => controller.selectTab("connection"), "aria-label": "查看连接与界面" }, (0, import_react3.createElement)(Icon, { name: "settings" })),
       (0, import_react3.createElement)("div", { className: "dsm-current" }, isChat ? (0, import_react3.createElement)("span", { className: "dsm-title-mascot" }, state.items.find((x) => x.id === state.active?.id) ? (0, import_react3.createElement)(Mascot, { item: state.items.find((x) => x.id === state.active.id), items: state.items, size: 28 }) : null, state.active?.name || "当前会话") : titles[state.tab], (0, import_react3.createElement)("span", { "data-connected": state.connected, role: "status" }, status)),
-      isChat ? (0, import_react3.createElement)("button", { className: "dsm-mode-switch", onClick: () => setEnabled(false), "aria-label": "切换回原版布局" }, "原版") : (0, import_react3.createElement)("button", { onClick: () => {
+      isChat ? (0, import_react3.createElement)("span", { className: "dsm-header-spacer", "aria-hidden": true }) : (0, import_react3.createElement)("button", { onClick: () => {
         if (state.tab === "connection") controller.selectTab("chats");
         requestAnimationFrame(() => document.getElementById("dsm-search")?.focus());
       }, "aria-label": "搜索会话" }, (0, import_react3.createElement)(Icon, { name: "search" }))
@@ -3751,18 +3868,14 @@ function MobileChrome({ controller, preference }) {
         (0, import_react3.createElement)("p", { className: "dsm-lead" }, "电脑保持运行时，随时接着聊。"),
         (0, import_react3.createElement)("dl", { className: "dsm-details" }, (0, import_react3.createElement)("div", null, (0, import_react3.createElement)("dt", null, "电脑连接"), (0, import_react3.createElement)("dd", null, status)), (0, import_react3.createElement)("div", null, (0, import_react3.createElement)("dt", null, "最近同步"), (0, import_react3.createElement)("dd", null, state.lastSync ? new Date(state.lastSync).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "尚未同步"))),
         (0, import_react3.createElement)("div", { className: "dsm-setting-actions" }, (0, import_react3.createElement)("button", { onClick: controller.restore, disabled: state.loading }, state.loading ? "正在同步…" : "同步消息"), (0, import_react3.createElement)("button", { onClick: () => controller.reconnect() }, "重新连接")),
-        (0, import_react3.createElement)("h2", null, "界面"),
-        (0, import_react3.createElement)("button", { className: "dsm-setting-row", onClick: () => setEnabled(false) }, (0, import_react3.createElement)("span", null, "切换原版布局"), (0, import_react3.createElement)("span", { "aria-hidden": true }, "›")),
-        (0, import_react3.createElement)("p", { className: "dsm-setting-note" }, "切回手机布局后，可以继续当前会话。电脑休眠或断网时，连接恢复后再查看最新进度。")
+        (0, import_react3.createElement)("p", { className: "dsm-setting-note" }, "电脑休眠或断网时，连接恢复后再查看最新进度。")
       ) : (0, import_react3.createElement)(
         "div",
         null,
-        chief ? (0, import_react3.createElement)("button", { className: "dsm-chief", onClick: () => controller.open(chief.id) }, (0, import_react3.createElement)("span", { className: "dsm-avatar dsm-chief-avatar", "data-bot-id": chief.id }, (0, import_react3.createElement)(Mascot, { item: chief, items: state.items, size: 72 })), (0, import_react3.createElement)("strong", null, chief.name), (0, import_react3.createElement)("small", null, chief.role || "主 Bot")) : null,
         (0, import_react3.createElement)("label", { className: "dsm-search" }, (0, import_react3.createElement)("span", { className: "dsm-sr" }, "搜索会话"), (0, import_react3.createElement)(Icon, { name: "search" }), (0, import_react3.createElement)("input", { id: "dsm-search", type: "search", value: state.query, onChange: (event) => controller.search(event.target.value), placeholder: state.tab === "team" ? "搜索你的 Bot" : "搜索会话", autoComplete: "off" })),
         state.tab === "team" ? (0, import_react3.createElement)("div", { className: "dsm-section-heading" }, (0, import_react3.createElement)("h1", null, "你的团队"), (0, import_react3.createElement)("span", null, results.length + " 位 Bot")) : null,
-        (0, import_react3.createElement)("div", { className: "dsm-list" }, ...results.filter((item) => item !== chief).map(row)),
-        !results.length ? (0, import_react3.createElement)("p", { className: "dsm-empty", role: "status" }, state.loading ? "正在同步团队…" : state.query ? "没有匹配的会话" : "团队准备中，可切回原版完成首次设置。") : null,
-        (0, import_react3.createElement)("p", { className: "dsm-list-foot" }, state.loading ? "正在同步…" : state.connected === "connected" ? "与电脑保持同步" : "连接恢复后将同步最新消息")
+        (0, import_react3.createElement)("div", { className: "dsm-list" }, ...results.map(row)),
+        !results.length ? (0, import_react3.createElement)("p", { className: "dsm-empty", role: "status" }, state.loading ? "正在同步团队…" : state.query ? "没有匹配的会话" : "团队准备中，请在电脑端完成首次设置。") : null
       )
     ) : null,
     !isChat ? (0, import_react3.createElement)("nav", { className: "dsm-tabs", "aria-label": "手机主导航" }, ...Object.entries({ chats: "聊天", team: "团队", connection: "连接" }).map(([tab, label]) => (0, import_react3.createElement)("button", { key: tab, onClick: () => controller.selectTab(tab), "aria-current": state.tab === tab ? "page" : void 0 }, (0, import_react3.createElement)(Icon, { name: tab === "chats" ? "chat" : tab }), (0, import_react3.createElement)("span", null, label)))) : null
@@ -3786,7 +3899,13 @@ function apply(ctx) {
     document.head.append(style);
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";
-    let timer, suspended = false;
+    let timer, cacheRelease, suspended = false;
+    const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
+    const cacheMode = () => controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches && !document.hidden);
+    const delayCacheRelease = () => {
+      clearTimeout(cacheRelease);
+      cacheRelease = setTimeout(() => controller.setCacheEnabled(false), 3e4);
+    };
     const viewport = () => {
       const v = window.visualViewport;
       document.documentElement.style.setProperty("--dsm-height", (v?.height ?? innerHeight) + "px");
@@ -3795,15 +3914,18 @@ function apply(ctx) {
     const poll = () => {
       clearInterval(timer);
       if (preference.snapshot()) timer = setInterval(() => {
-        if (!document.hidden) void controller.refresh();
+        if (!document.hidden && !controller.snapshot().loading) void controller.refresh();
       }, 1500);
     };
     const offPreference = preference.subscribe(() => {
+      cacheMode();
       poll();
       if (preference.snapshot()) void controller.restore();
     });
     const recover = () => {
+      clearTimeout(cacheRelease);
       viewport();
+      cacheMode();
       poll();
       void controller.restore();
     };
@@ -3811,6 +3933,7 @@ function apply(ctx) {
       if (document.hidden) {
         suspended = true;
         clearInterval(timer);
+        delayCacheRelease();
       } else if (suspended) {
         suspended = false;
         recover();
@@ -3819,6 +3942,8 @@ function apply(ctx) {
     const hide = () => {
       suspended = true;
       clearInterval(timer);
+      clearTimeout(cacheRelease);
+      controller.setCacheEnabled(false);
     };
     const show = (event) => {
       if (event.persisted && suspended) {
@@ -3840,14 +3965,18 @@ function apply(ctx) {
     window.addEventListener("pagehide", hide);
     window.addEventListener("online", recover);
     window.addEventListener("popstate", pop);
+    mobileMedia.addEventListener("change", cacheMode);
     document.addEventListener("visibilitychange", visible);
     document.addEventListener("freeze", hide);
     document.addEventListener("resume", resume);
     viewport();
+    cacheMode();
     poll();
     void controller.refresh();
     return () => {
       clearInterval(timer);
+      clearTimeout(cacheRelease);
+      mobileMedia.removeEventListener("change", cacheMode);
       offPreference();
       controller.close();
       style.remove();
@@ -3870,7 +3999,7 @@ function apply(ctx) {
   });
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference }) }, MobileChrome));
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-phone-access", order: 41, inject: () => ({ phone }) }, PhoneAccess));
-  ctx.slots.inject("plugins.item", () => ctx.slots.register({ name: "plugins.item", id: "mobile-layout-local-settings", order: 140, label: "DS Bot Mobile Web", inject: () => ({ preference, phone }) }, MobileSettings));
+  ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "ds-bot-mobile-web", inject: () => ({ preference, phone }) }, MobileSettings));
 }
 
 return Object.defineProperty({...module.exports},Symbol.toStringTag,{value:'Module'});

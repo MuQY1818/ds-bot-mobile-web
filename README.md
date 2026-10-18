@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="构建与检查"></a>
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-0.2.0-blue" alt="版本 0.2.0"></a>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-0.3.0-blue" alt="版本 0.3.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 许可"></a>
 </p>
 
@@ -14,13 +14,24 @@
 
 DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 的移动界面插件。它在现有会话上提供适合手机的导航、团队视图和扫码登录入口，共用电脑上的 Bot、群聊与消息历史。
 
-> **预览版本**：当前发布为 `0.2.0`，目标组合为 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。插件安装在电脑上，手机使用浏览器访问。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
+> **预览版本**：当前发布为 `0.3.0`，目标组合为 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。插件安装在电脑上，手机使用浏览器访问。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 
-![电脑端“手机访问”面板](docs/images/phone-access.png)
+<p align="center">
+  <img src="docs/images/conversations.png" width="230" alt="手机 Web 会话列表">
+  <img src="docs/images/chat.png" width="230" alt="手机 Web 单聊界面">
+  <img src="docs/images/group.png" width="230" alt="手机 Web 群聊成员署名">
+</p>
 
-*电脑端扫码入口；截图来自隔离演示环境，使用示例域名与演示二维码。*
+*截图来自隔离 mock 宿主与虚构团队。它们是实际 Web 界面，不含私人会话；设计说明见 [docs/design.md](docs/design.md)。*
+
+<details>
+  <summary>电脑端扫码登录入口</summary>
+
+![电脑端“手机访问”面板，使用示例域名和演示二维码](docs/images/phone-access.png)
+
+</details>
 
 ## 主要功能
 
@@ -28,7 +39,8 @@ DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/de
 - **复用完整聊天界面**：沿用 DS Bot 的消息渲染和输入框，保留流式回复、群聊与交互卡片。
 - **电脑扫码入口**：从账户菜单打开“手机访问”，通过宿主认证链接登录手机浏览器。
 - **保留 Bot 身份**：显示精灵头像、工作状态及群成员组合。
-- **按需切换布局**：手机页可切回原版；宽屏保留桌面布局，停用插件即可恢复界面。
+- **统一消息界面**：紧凑列表、居中身份、黑色用户气泡与浅灰 Bot 气泡，宽屏保留桌面布局。
+- **快速返回会话**：保留最近 3 段会话的宿主内存引用，5 分钟内返回复用历史；不另存聊天转录。
 
 ## 开发状态
 
@@ -47,7 +59,7 @@ Web 插件已可使用；近期包名迁移导致的入口配置失效已修复�
 
 ### 安装与登录
 
-1. 在电脑上从 [v0.2.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0) 下载 `ds-bot-mobile-web-0.2.0.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
+1. 在电脑上从 [v0.3.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0) 下载 `ds-bot-mobile-web-0.3.0.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
 2. 在现有 DSH 的插件管理器中安装本地 `.tgz`，确认包名和版本，启用后刷新页面；如宿主要求重启，按提示操作。
 3. 在电脑端 DS Bot 账户菜单选择 **手机访问**。入口未配置时，填写已准备好的 HTTPS 地址。
 4. 手机接入对应网络，扫描二维码，并在浏览器中完成登录。
@@ -61,11 +73,13 @@ Web 插件已可使用；近期包名迁移导致的入口配置失效已修复�
 | | Mobile Web | Mobile App |
 | --- | --- | --- |
 | 使用方式 | 手机浏览器 | iOS / Android 原生客户端 |
-| 电脑端组件 | 本仓库的 Web 插件 | 独立 Mobile Bridge |
+| 电脑端组件 | 本仓库的 Web 插件 | Mobile App 配对插件 + Mobile Bridge |
 | 登录方式 | DSH 浏览器认证链接 | 电脑批准设备配对 |
 | 适用场景 | 快速访问现有 DS Bot Web 界面 | 原生导航、设备授权与本地缓存 |
 
 两者分别维护，均连接已有团队。使用 Mobile Web 无需安装 Mobile Bridge。
+
+电脑端共有三个可独立启停的插件：`ds-bot-mobile-web` 提供手机 Web 与浏览器登录，`ds-bot-mobile-app` 提供原生 App 的配对和设备管理界面，`ds-bot-mobile-bridge` 提供设备认证与协议服务。后两者由 [App 仓库](https://github.com/MuQY1818/ds-bot-mobile-app/blob/main/docs/plugins.md)维护；停用配对界面不会停止 Bridge 或撤销现有设备。
 
 ## 开发
 
@@ -88,7 +102,8 @@ npm run audit:files
 | --- | --- |
 | [安装指南](docs/installation.md) | 下载校验、安装、升级与回退 |
 | [远程访问](docs/remote-access.md) | 私网、HTTPS、域名信任与登录 |
-| [使用说明](docs/usage.md) | 手机导航、扫码面板与布局切换 |
+| [网络方案](docs/remote-connectivity.md) | ZCode 中继、Tailscale 与 Cloudflare Tunnel 的选择 |
+| [使用说明](docs/usage.md) | 手机导航、扫码面板与连接状态 |
 | [故障排查](docs/troubleshooting.md) | 连接、认证与布局问题 |
 | [架构](docs/architecture.md) | 宿主接口、凭据边界与菜单适配 |
 | [兼容与验证](docs/validation.md) | 已验证场景及平台限制 |
@@ -96,7 +111,7 @@ npm run audit:files
 
 ## 兼容性与访问凭据
 
-布局使用宿主公开插件接口，也依赖部分 DOM 标记；账户菜单入口通过独立 DOM 适配提供。升级 DSH 或 DS Bot 后需回归检查。菜单不可用时，可从 DSH 插件设置页的“手机布局”打开访问面板。
+布局使用宿主公开插件接口，也依赖部分 DOM 标记；账户菜单入口通过独立 DOM 适配提供。升级 DSH 或 DS Bot 后需回归检查。菜单不可用时，可从 插件管理器 → ds-bot-mobile-web 详情页打开访问面板。
 
 完整的 iPhone Safari 软键盘、安全区、锁屏及网络切换矩阵仍需真机验证，详见[验证说明](docs/validation.md)。
 
