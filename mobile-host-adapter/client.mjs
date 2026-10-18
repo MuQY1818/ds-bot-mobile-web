@@ -15,6 +15,7 @@ export function createMobileClient({ appRoot, fetch: request = globalThis.fetch 
   let state
   let issued = 0
   let applied = 0
+  let stateRequest
   const submissions = new Map()
 
   async function call(endpoint, payload, signal) {
@@ -41,16 +42,56 @@ export function createMobileClient({ appRoot, fetch: request = globalThis.fetch 
   }
 
   async function refresh(signal) {
-    const order = ++issued
-    const value = await call('state', state ? { since: state.revision, models: state.modelsKey } : {}, signal)
-    if (order < applied) return state
-    if (!value || (!value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms)))) {
-      throw failure('mobile/invalid-state', 'Unsupported team state')
+    signal?.throwIfAborted()
+    if (!stateRequest) {
+      const request = { controller: new AbortController(), readers: 0, settled: false }
+      const order = ++issued
+      stateRequest = request
+      request.promise = (async () => {
+        const value = await call('state', state ? { since: state.revision, models: state.modelsKey } : {}, request.controller.signal)
+        request.controller.signal.throwIfAborted()
+        if (order < applied) return state
+        if (!value || (!value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms)))) {
+          throw failure('mobile/invalid-state', 'Unsupported team state')
+        }
+        if (value.unchanged && !state) throw failure('mobile/invalid-state', 'Missing initial team state')
+        applied = order
+        state = value.unchanged ? { ...state, ...value } : value
+        return state
+      })().catch(error => {
+        if (!request.controller.signal.aborted && order >= applied && ['HTTP_401', 'HTTP_403'].includes(error.code)) {
+          state = undefined
+          applied = order
+        }
+        throw error
+      }).finally(() => {
+        request.settled = true
+        if (stateRequest === request) stateRequest = undefined
+      })
     }
-    if (value.unchanged && !state) throw failure('mobile/invalid-state', 'Missing initial team state')
-    applied = order
-    state = value.unchanged ? { ...state, ...value } : value
-    return state
+    const request = stateRequest
+    request.readers++
+    // Share only an in-flight authenticated state read. No completed response is
+    // used to skip a later target's identity check, and one cancelled navigation
+    // cannot abort a roster refresh that is still waiting for the same response.
+    return new Promise((resolve, reject) => {
+      let active = true
+      const finish = (settle, value) => {
+        if (!active) return
+        active = false
+        signal?.removeEventListener('abort', cancel)
+        request.readers--
+        if (!request.readers && !request.settled) {
+          if (stateRequest === request) stateRequest = undefined
+          request.controller.abort()
+        }
+        settle(value)
+      }
+      const cancel = () => finish(reject, signal.reason)
+      signal?.addEventListener('abort', cancel, { once: true })
+      request.promise.then(value => finish(resolve, value), error => finish(reject, error))
+      if (signal?.aborted) cancel()
+    })
   }
 
   async function target(id, signal) {

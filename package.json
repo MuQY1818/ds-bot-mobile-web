@@ -1,12 +1,13 @@
 {
   "name": "ds-bot-mobile-web-source",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "scripts": {
     "setup": "npm --prefix ds-bot-upstream/ds-bot run harness && npm --prefix mobile-web-prototype/plugin ci",
     "check": "node scripts/check.mjs",
     "build": "npm --prefix mobile-web-prototype/plugin run build",
     "pack": "node scripts/pack.mjs",
+    "check:delivery": "node scripts/delivery.mjs",
     "audit:files": "python3 scripts/audit_files.py"
   },
   "license": "Apache-2.0"

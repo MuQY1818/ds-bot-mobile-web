@@ -1870,6 +1870,7 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {})
   let state;
   let issued = 0;
   let applied = 0;
+  let stateRequest;
   const submissions = /* @__PURE__ */ new Map();
   async function call(endpoint, payload, signal) {
     signal?.throwIfAborted();
@@ -1902,16 +1903,53 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {})
     return result.value;
   }
   async function refresh(signal) {
-    const order = ++issued;
-    const value = await call("state", state ? { since: state.revision, models: state.modelsKey } : {}, signal);
-    if (order < applied) return state;
-    if (!value || !value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms))) {
-      throw failure("mobile/invalid-state", "Unsupported team state");
+    signal?.throwIfAborted();
+    if (!stateRequest) {
+      const request3 = { controller: new AbortController(), readers: 0, settled: false };
+      const order = ++issued;
+      stateRequest = request3;
+      request3.promise = (async () => {
+        const value = await call("state", state ? { since: state.revision, models: state.modelsKey } : {}, request3.controller.signal);
+        request3.controller.signal.throwIfAborted();
+        if (order < applied) return state;
+        if (!value || !value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms))) {
+          throw failure("mobile/invalid-state", "Unsupported team state");
+        }
+        if (value.unchanged && !state) throw failure("mobile/invalid-state", "Missing initial team state");
+        applied = order;
+        state = value.unchanged ? { ...state, ...value } : value;
+        return state;
+      })().catch((error) => {
+        if (!request3.controller.signal.aborted && order >= applied && ["HTTP_401", "HTTP_403"].includes(error.code)) {
+          state = void 0;
+          applied = order;
+        }
+        throw error;
+      }).finally(() => {
+        request3.settled = true;
+        if (stateRequest === request3) stateRequest = void 0;
+      });
     }
-    if (value.unchanged && !state) throw failure("mobile/invalid-state", "Missing initial team state");
-    applied = order;
-    state = value.unchanged ? { ...state, ...value } : value;
-    return state;
+    const request2 = stateRequest;
+    request2.readers++;
+    return new Promise((resolve, reject) => {
+      let active = true;
+      const finish = (settle, value) => {
+        if (!active) return;
+        active = false;
+        signal?.removeEventListener("abort", cancel);
+        request2.readers--;
+        if (!request2.readers && !request2.settled) {
+          if (stateRequest === request2) stateRequest = void 0;
+          request2.controller.abort();
+        }
+        settle(value);
+      };
+      const cancel = () => finish(reject, signal.reason);
+      signal?.addEventListener("abort", cancel, { once: true });
+      request2.promise.then((value) => finish(resolve, value), (error) => finish(reject, error));
+      if (signal?.aborted) cancel();
+    });
   }
   async function target(id, signal) {
     const view = await refresh(signal);
@@ -2079,7 +2117,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
   const listeners = /* @__PURE__ */ new Set();
   const retention = createSessionRetention({ sessions, now });
   let state = { page: history.state?.dsMobilePage === "chat" ? "chat" : "home", tab: "chats", items: [], active: null, error: "", loading: false, query: "", connected: connection.state.getSnapshot(), lastSync: null };
-  let disposed = false, nav = 0, pull = 0, controller, restoring;
+  let disposed = false, nav = 0, pull = 0, controller, restoring, refreshing, navigation;
   const publish = (patch) => {
     if (disposed) return;
     state = { ...state, ...patch };
@@ -2093,31 +2131,43 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
   };
   const offSessions = sessions.list.subscribe(syncSelection);
   const offConnection = connection.state.subscribe(() => publish({ connected: connection.state.getSnapshot() }));
-  async function refresh() {
+  function cancelNavigation() {
+    nav++;
+    navigation?.abort();
+    navigation = void 0;
+  }
+  function refresh() {
     if (disposed) return;
+    if (refreshing) return refreshing;
     const issued = ++pull;
-    controller?.abort();
     controller = new AbortController();
     const request = controller;
     publish({ loading: true });
-    try {
-      const items = typeof api.refresh === "function" ? summarizeTeam(await api.refresh(request.signal)) : await api.conversations(request.signal);
-      if (disposed || issued !== pull) return;
-      retention.reconcile(items);
-      publish({ items, loading: false, error: "", lastSync: now() });
-      syncSelection();
-    } catch (error) {
-      if (disposed || issued !== pull || request.signal.aborted) return;
-      if (unauthorized(error)) retention.clear();
-      const errorText = unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
-      publish({ loading: false, error: errorText });
-    }
+    refreshing = (async () => {
+      try {
+        const items = typeof api.refresh === "function" ? summarizeTeam(await api.refresh(request.signal)) : await api.conversations(request.signal);
+        if (disposed || issued !== pull) return;
+        retention.reconcile(items);
+        publish({ items, loading: false, error: "", lastSync: now() });
+        syncSelection();
+      } catch (error) {
+        if (disposed || issued !== pull || request.signal.aborted) return;
+        if (unauthorized(error)) retention.clear();
+        const errorText = unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
+        publish({ loading: false, error: errorText });
+      }
+    })().finally(() => {
+      if (controller === request) refreshing = void 0;
+    });
+    return refreshing;
   }
   async function open(id) {
-    const attempt = ++nav;
+    cancelNavigation();
+    const attempt = nav, request = new AbortController();
+    navigation = request;
     publish({ loading: true, error: "" });
     try {
-      const target = await api.target(id);
+      const target = await api.target(id, request.signal);
       if (disposed || attempt !== nav) return;
       retention.visit(target);
       workspace.openSession(target.sessionId);
@@ -2128,6 +2178,8 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
       if (unauthorized(error)) retention.clear();
       else retention.discard(id);
       publish({ loading: false, error: unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "无法打开会话，请刷新列表后重试。" });
+    } finally {
+      if (navigation === request) navigation = void 0;
     }
   }
   async function restore() {
@@ -2153,16 +2205,16 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     search: (query) => publish({ query }),
     selectTab(tab) {
       if (!["chats", "team", "connection"].includes(tab)) return;
-      nav++;
+      cancelNavigation();
       publish({ page: "home", tab, query: "", loading: false });
     },
     home() {
-      nav++;
+      cancelNavigation();
       publish({ page: "home", loading: false });
       if (history.state?.dsMobilePage === "chat") history.back();
     },
     pop(event) {
-      nav++;
+      cancelNavigation();
       publish({ page: event.state?.dsMobilePage === "chat" ? "chat" : "home", loading: false });
       syncSelection();
     },
@@ -2172,7 +2224,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     close() {
       if (disposed) return;
       disposed = true;
-      nav++;
+      cancelNavigation();
       pull++;
       controller?.abort();
       retention.close();
@@ -2209,6 +2261,37 @@ function createLayoutPreference(storage) {
       for (const listener of listeners) listener();
     }
   };
+}
+
+// src/refresh-loop.mjs
+function createRefreshLoop({ refresh, enabled, intervalMs = 5e3, setTimer = setTimeout, clearTimer = clearTimeout }) {
+  let timer, closed = false, running = false;
+  const clear = () => {
+    if (timer !== void 0) clearTimer(timer);
+    timer = void 0;
+  };
+  const sync = () => {
+    clear();
+    if (closed || running || !enabled()) return;
+    timer = setTimer(run, intervalMs);
+    timer?.unref?.();
+  };
+  async function run() {
+    clear();
+    if (closed || running || !enabled()) return;
+    running = true;
+    try {
+      await refresh();
+    } catch {
+    } finally {
+      running = false;
+      sync();
+    }
+  }
+  return { sync, close() {
+    closed = true;
+    clear();
+  } };
 }
 
 // src/phone-controller.mjs
@@ -4039,8 +4122,12 @@ function apply(ctx) {
     document.head.append(style);
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";
-    let timer, cacheRelease, suspended = false;
+    let cacheRelease, suspended = false;
     const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
+    const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && !suspended;
+    const polling = createRefreshLoop({ enabled: mobileActive, refresh: () => {
+      if (!controller.snapshot().loading) return controller.refresh();
+    } });
     const cacheMode = () => controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches && !document.hidden);
     const delayCacheRelease = () => {
       clearTimeout(cacheRelease);
@@ -4051,28 +4138,28 @@ function apply(ctx) {
       document.documentElement.style.setProperty("--dsm-height", (v?.height ?? innerHeight) + "px");
       document.documentElement.style.setProperty("--dsm-top", (v?.offsetTop ?? 0) + "px");
     };
-    const poll = () => {
-      clearInterval(timer);
-      if (preference.snapshot()) timer = setInterval(() => {
-        if (!document.hidden && !controller.snapshot().loading) void controller.refresh();
-      }, 1500);
-    };
+    const poll = () => polling.sync();
     const offPreference = preference.subscribe(() => {
       cacheMode();
       poll();
-      if (preference.snapshot()) void controller.restore();
+      if (mobileActive()) void controller.restore();
     });
     const recover = () => {
       clearTimeout(cacheRelease);
       viewport();
       cacheMode();
       poll();
-      void controller.restore();
+      if (mobileActive()) void controller.restore();
+    };
+    const mediaChange = () => {
+      cacheMode();
+      poll();
+      if (mobileActive()) void controller.restore();
     };
     const visible = () => {
       if (document.hidden) {
         suspended = true;
-        clearInterval(timer);
+        poll();
         delayCacheRelease();
       } else if (suspended) {
         suspended = false;
@@ -4081,7 +4168,7 @@ function apply(ctx) {
     };
     const hide = () => {
       suspended = true;
-      clearInterval(timer);
+      poll();
       clearTimeout(cacheRelease);
       controller.setCacheEnabled(false);
     };
@@ -4105,18 +4192,18 @@ function apply(ctx) {
     window.addEventListener("pagehide", hide);
     window.addEventListener("online", recover);
     window.addEventListener("popstate", pop);
-    mobileMedia.addEventListener("change", cacheMode);
+    mobileMedia.addEventListener("change", mediaChange);
     document.addEventListener("visibilitychange", visible);
     document.addEventListener("freeze", hide);
     document.addEventListener("resume", resume);
     viewport();
     cacheMode();
     poll();
-    void controller.refresh();
+    if (mobileActive()) void controller.refresh();
     return () => {
-      clearInterval(timer);
+      polling.close();
       clearTimeout(cacheRelease);
-      mobileMedia.removeEventListener("change", cacheMode);
+      mobileMedia.removeEventListener("change", mediaChange);
       offPreference();
       controller.close();
       style.remove();

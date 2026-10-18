@@ -17,8 +17,16 @@ test('late navigation cannot overwrite a newer selection or home',async()=>{
   const first=f.controller.open('old'),second=f.controller.open('new');pending.get('new')({id:'new',sessionId:'new-part',name:'new'});await second;pending.get('old')({id:'old',sessionId:'old-part',name:'old'});await first;assert.deepEqual(f.opened,['new-part'])
   const third=f.controller.open('old');f.controller.home();pending.get('old')({id:'old',sessionId:'old-part',name:'old'});await third;assert.deepEqual(f.opened,['new-part']);f.controller.close()
 })
-test('refresh races preserve newest roster and ignore aborted old result',async()=>{
-  const requests=[];const f=fixture({conversations:signal=>new Promise(resolve=>requests.push({signal,resolve}))});const old=f.controller.refresh(),latest=f.controller.refresh();assert.equal(requests[0].signal.aborted,true);requests[1].resolve([{id:'new'}]);await latest;requests[0].resolve([{id:'old'}]);await old;assert.equal(f.controller.snapshot().items[0].id,'new');f.controller.close()
+test('overlapping refreshes share one request without cancelling useful work',async()=>{
+  const requests=[];const f=fixture({conversations:signal=>new Promise(resolve=>requests.push({signal,resolve}))});const first=f.controller.refresh(),second=f.controller.refresh();assert.equal(requests.length,1);assert.equal(requests[0].signal.aborted,false);requests[0].resolve([{id:'current'}]);await Promise.all([first,second]);assert.equal(f.controller.snapshot().items[0].id,'current');const next=f.controller.refresh();assert.equal(requests.length,2);requests[1].resolve([{id:'next'}]);await next;assert.equal(f.controller.snapshot().items[0].id,'next');f.controller.close()
+})
+test('superseded navigation and home cancel their metadata waiters',async()=>{
+  const requests=[];const f=fixture({target:(id,signal)=>new Promise(resolve=>requests.push({id,signal,resolve}))})
+  const old=f.controller.open('old'),current=f.controller.open('current')
+  assert.equal(requests[0].signal.aborted,true);assert.equal(requests[1].signal.aborted,false)
+  f.controller.home();assert.equal(requests[1].signal.aborted,true)
+  for(const request of requests)request.resolve({id:request.id,sessionId:request.id,name:request.id})
+  await Promise.all([old,current]);assert.deepEqual(f.opened,[]);assert.equal(f.controller.snapshot().page,'home');f.controller.close()
 })
 test('foreground refresh does not submit text or force reconnect',async()=>{
   const f=fixture();await f.controller.restore();await f.controller.restore();assert.equal(f.refreshes,2);assert.equal(f.reconnects,0);f.controller.reconnect();assert.equal(f.reconnects,1);f.state.set('disconnected');assert.equal(f.controller.snapshot().connected,'disconnected');f.controller.close()

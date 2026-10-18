@@ -2,6 +2,7 @@ import {createElement as h,useEffect,useSyncExternalStore} from 'react'
 import {createMobileClient} from '../../../mobile-host-adapter/client.mjs'
 import {createMobileNavigation} from './controller.mjs'
 import {createLayoutPreference} from './preference.mjs'
+import {createRefreshLoop} from './refresh-loop.mjs'
 import {createPhoneController} from './phone-controller.mjs'
 import {WebAccessPanel} from './phone-access.mjs'
 import {registerMobileAccessProvider} from './mobile-access-registry.mjs'
@@ -78,27 +79,30 @@ export function apply(ctx){
     const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+phoneCss;document.head.append(style)
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
-    let timer,cacheRelease,suspended=false
+    let cacheRelease,suspended=false
     const mobileMedia=window.matchMedia('(max-width:767px), (max-width:1024px) and (max-height:500px)')
+    const mobileActive=()=>preference.snapshot()&&mobileMedia.matches&&!document.hidden&&!suspended
+    const polling=createRefreshLoop({enabled:mobileActive,refresh:()=>{if(!controller.snapshot().loading)return controller.refresh()}})
     const cacheMode=()=>controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden)
     const delayCacheRelease=()=>{clearTimeout(cacheRelease);cacheRelease=setTimeout(()=>controller.setCacheEnabled(false),30000)}
     const viewport=()=>{const v=window.visualViewport;document.documentElement.style.setProperty('--dsm-height',(v?.height??innerHeight)+'px');document.documentElement.style.setProperty('--dsm-top',(v?.offsetTop??0)+'px')}
-    const poll=()=>{clearInterval(timer);if(preference.snapshot())timer=setInterval(()=>{if(!document.hidden&&!controller.snapshot().loading)void controller.refresh()},1500)}
-    const offPreference=preference.subscribe(()=>{cacheMode();poll();if(preference.snapshot())void controller.restore()})
-    const recover=()=>{clearTimeout(cacheRelease);viewport();cacheMode();poll();void controller.restore()}
-    const visible=()=>{if(document.hidden){suspended=true;clearInterval(timer);delayCacheRelease()}else if(suspended){suspended=false;recover()}}
-    const hide=()=>{suspended=true;clearInterval(timer);clearTimeout(cacheRelease);controller.setCacheEnabled(false)}
+    const poll=()=>polling.sync()
+    const offPreference=preference.subscribe(()=>{cacheMode();poll();if(mobileActive())void controller.restore()})
+    const recover=()=>{clearTimeout(cacheRelease);viewport();cacheMode();poll();if(mobileActive())void controller.restore()}
+    const mediaChange=()=>{cacheMode();poll();if(mobileActive())void controller.restore()}
+    const visible=()=>{if(document.hidden){suspended=true;poll();delayCacheRelease()}else if(suspended){suspended=false;recover()}}
+    const hide=()=>{suspended=true;poll();clearTimeout(cacheRelease);controller.setCacheEnabled(false)}
     const show=event=>{if(event.persisted&&suspended){suspended=false;recover()}}
     const resume=()=>{if(suspended){suspended=false;recover()}}
     const pop=event=>controller.pop(event)
     window.visualViewport?.addEventListener('resize',viewport);window.visualViewport?.addEventListener('scroll',viewport)
     window.addEventListener('resize',viewport);window.addEventListener('pageshow',show);window.addEventListener('pagehide',hide)
     window.addEventListener('online',recover);window.addEventListener('popstate',pop)
-    mobileMedia.addEventListener('change',cacheMode)
+    mobileMedia.addEventListener('change',mediaChange)
     document.addEventListener('visibilitychange',visible);document.addEventListener('freeze',hide);document.addEventListener('resume',resume)
-    viewport();cacheMode();poll();void controller.refresh()
+    viewport();cacheMode();poll();if(mobileActive())void controller.refresh()
     return()=>{
-      clearInterval(timer);clearTimeout(cacheRelease);mobileMedia.removeEventListener('change',cacheMode);offPreference();controller.close();style.remove();if(meta)meta.content=originalViewport
+      polling.close();clearTimeout(cacheRelease);mobileMedia.removeEventListener('change',mediaChange);offPreference();controller.close();style.remove();if(meta)meta.content=originalViewport
       window.visualViewport?.removeEventListener('resize',viewport);window.visualViewport?.removeEventListener('scroll',viewport)
       window.removeEventListener('resize',viewport);window.removeEventListener('pageshow',show);window.removeEventListener('pagehide',hide)
       window.removeEventListener('online',recover);window.removeEventListener('popstate',pop)
