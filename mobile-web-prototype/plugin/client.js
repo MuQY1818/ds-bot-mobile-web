@@ -2173,6 +2173,7 @@ function createPhoneController({ appRoot, form, fetchImpl = fetch }) {
       publish({ open: false, loading: false, loginUrl: "", copied: false, error: "" });
     },
     async configure(value) {
+      const issued = serial;
       let url;
       try {
         url = cleanPhoneUrl(value);
@@ -2181,15 +2182,17 @@ function createPhoneController({ appRoot, form, fetchImpl = fetch }) {
         return false;
       }
       try {
-        if (!await form.set("phoneUrl", url)) {
+        const saved = await form.set("phoneUrl", url);
+        if (disposed || issued !== serial || !state.open) return saved;
+        if (!saved) {
           publish({ error: "地址未保存，请确认宿主允许修改该插件设置。" });
           return false;
         }
       } catch {
-        publish({ error: "地址未保存，请检查电脑连接后重试。" });
+        if (!disposed && issued === serial && state.open) publish({ error: "地址未保存，请检查电脑连接后重试。" });
         return false;
       }
-      if (!disposed) await refresh(url);
+      await refresh(url);
       return true;
     },
     async copy(clipboard) {
@@ -2280,9 +2283,12 @@ function PhoneDialog({ phone }) {
         return;
       }
       if (event.key !== "Tab") return;
-      const controls = [...root.current.querySelectorAll("button:not([disabled]),input,textarea,a[href]")].filter((node) => node.getClientRects().length);
+      const controls = [...root.current.querySelectorAll('button:not([disabled]),input,textarea,a[href],summary,[tabindex]:not([tabindex="-1"])')].filter((node) => node.getClientRects().length);
       const first = controls[0], last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
+      if (!root.current.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last?.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -2298,6 +2304,9 @@ function PhoneDialog({ phone }) {
       else document.querySelector(".bt-account")?.focus();
     };
   }, [state.open, phone]);
+  (0, import_react.useEffect)(() => {
+    if (state.open && root.current && !root.current.contains(document.activeElement)) close.current?.focus();
+  }, [state.open, state.loading, state.status, editing]);
   if (!state.open) return null;
   const ready = state.status === "ready" && Boolean(state.loginUrl), configure = editing || !ready && !state.loading && ["not-configured", "local-only", "invalid-url", "needs-https", "not-trusted"].includes(state.status);
   const save = async (event) => {

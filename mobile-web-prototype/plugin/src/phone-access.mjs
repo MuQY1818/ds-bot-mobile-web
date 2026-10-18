@@ -50,14 +50,16 @@ export function PhoneDialog({phone}){
     const key=event=>{
       if(event.key==='Escape'){event.preventDefault();event.stopPropagation();phone.close();return}
       if(event.key!=='Tab')return
-      const controls=[...root.current.querySelectorAll('button:not([disabled]),input,textarea,a[href]')].filter(node=>node.getClientRects().length)
+      const controls=[...root.current.querySelectorAll('button:not([disabled]),input,textarea,a[href],summary,[tabindex]:not([tabindex="-1"])')].filter(node=>node.getClientRects().length)
       const first=controls[0],last=controls.at(-1)
-      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
+      if(!root.current.contains(document.activeElement)){event.preventDefault();(event.shiftKey?last:first)?.focus()}
+      else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
     }
     document.addEventListener('keydown',key,true)
     return()=>{document.removeEventListener('keydown',key,true);const prior=restoreFocus.current;if(prior?.isConnected&&prior!==document.body)prior.focus();else document.querySelector('.bt-account')?.focus()}
   },[state.open,phone])
+  useEffect(()=>{if(state.open&&root.current&&!root.current.contains(document.activeElement))close.current?.focus()},[state.open,state.loading,state.status,editing])
   if(!state.open)return null
   const ready=state.status==='ready'&&Boolean(state.loginUrl),configure=editing||(!ready&&!state.loading&&['not-configured','local-only','invalid-url','needs-https','not-trusted'].includes(state.status))
   const save=async event=>{event.preventDefault();setSaving(true);const ok=await phone.configure(address);setSaving(false);if(ok)setEditing(false)}

@@ -41,10 +41,15 @@ export function createPhoneController({appRoot,form,fetchImpl=fetch}){
     open(){publish({open:true});void refresh()},refresh,
     close(){serial++;request?.abort();publish({open:false,loading:false,loginUrl:'',copied:false,error:''})},
     async configure(value){
+      const issued=serial
       let url
       try{url=cleanPhoneUrl(value)}catch{publish({error:phoneStatusText('invalid-url')});return false}
-      try{if(!await form.set('phoneUrl',url)){publish({error:'地址未保存，请确认宿主允许修改该插件设置。'});return false}}catch{publish({error:'地址未保存，请检查电脑连接后重试。'});return false}
-      if(!disposed)await refresh(url)
+      try{
+        const saved=await form.set('phoneUrl',url)
+        if(disposed||issued!==serial||!state.open)return saved
+        if(!saved){publish({error:'地址未保存，请确认宿主允许修改该插件设置。'});return false}
+      }catch{if(!disposed&&issued===serial&&state.open)publish({error:'地址未保存，请检查电脑连接后重试。'});return false}
+      await refresh(url)
       return true
     },
     async copy(clipboard){

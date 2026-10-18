@@ -21,6 +21,15 @@ test('configuration saves only a clean HTTPS base URL through the public form',a
 test('unexpected signed destination is rejected rather than rendered or copied',async()=>{
   const {phone}=fixture(async()=>({json:async()=>({...ready,loginUrl:'https://other.example.com/?token=fixture'})}));await phone.refresh();assert.equal(phone.snapshot().status,'unavailable');assert.equal(phone.snapshot().loginUrl,'')
 })
+test('a pending configuration save cannot issue a login link after close',async()=>{
+  let finishSave,fetches=0
+  const phone=createPhoneController({appRoot:'http://127.0.0.1:3399/',form:{set:()=>new Promise(resolve=>finishSave=resolve)},fetchImpl:async()=>{fetches++;return {json:async()=>ready}}})
+  phone.open();await new Promise(resolve=>setImmediate(resolve))
+  const saving=phone.configure('https://dsh.example.com/')
+  phone.close();finishSave(true);assert.equal(await saving,true)
+  assert.equal(fetches,1);assert.equal(phone.snapshot().open,false);assert.equal(phone.snapshot().loginUrl,'')
+})
+
 test('QR SVG reserves a quiet zone and renders fixed black modules locally',()=>{
   const qr=phoneQr(ready.loginUrl);assert.ok(qr.size>8);assert.ok(qr.path.startsWith('M4 4'));assert.match(qr.path,/h1v1h-1z/);assert.doesNotMatch(qr.path,/https?:/)
 })
