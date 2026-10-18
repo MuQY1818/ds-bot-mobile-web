@@ -11,3 +11,7 @@ The mobile client bundles upstream BotAvatar, BotMark, RoomAvatar, botState,
 character graphics and their imported modules. The build changes only the SVG
 mask namespace from bt-mark- to dsm-mark- to avoid same-document collisions.
 Upstream sources are not patched; DSH and DS Bot remain independent dependencies.
+
+The mobile client also bundles qrcode 1.5.4 and dijkstrajs for local QR encoding.
+Their MIT copyright and license texts are included in
+mobile-web-prototype/plugin/NOTICE and travel with the installable package.

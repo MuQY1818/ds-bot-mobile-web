@@ -1,29 +1,21 @@
 {
   "name": "dsh-mobile-layout-local",
-  "version": "0.1.2",
+  "version": "0.1.4",
+  "description": "DS Bot mobile Web layout with a local QR login and link-sharing panel",
   "private": true,
   "type": "module",
   "main": "index.mjs",
-  "files": ["index.mjs", "client.js", "cordis.patch.yml", "README.md", "NOTICE", "LICENSE"],
-  "exports": {
-    ".": "./index.mjs",
-    "./client": "./client.js"
-  },
-  "dsh": {
-    "client": {
-      "platform": "web"
-    },
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    }
-  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/MuQY1818/ds-bot-mobile-web",
+  "repository": {"type":"git","url":"git+https://github.com/MuQY1818/ds-bot-mobile-web.git","directory":"mobile-web-prototype/plugin"},
+  "bugs": {"url":"https://github.com/MuQY1818/ds-bot-mobile-web/issues"},
+  "files": ["index.mjs", "phone-access.mjs", "client.js", "cordis.patch.yml", "README.md", "NOTICE", "LICENSE"],
+  "exports": {".":"./index.mjs","./client":"./client.js"},
+  "dsh": {"client":{"platform":"web"},"bundle":{"patch":"./cordis.patch.yml"}},
+  "peerDependencies": {"@deepseek-ai/schemastery":"*"},
   "scripts": {
-    "build": "node build.mjs",
-    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --test test/*.test.mjs"
+    "build":"node build.mjs",
+    "check":"node --check index.mjs && node --check phone-access.mjs && node --check src/client.mjs && node --check src/controller.mjs && node --check src/phone-access.mjs && node --check src/phone-controller.mjs && node --test test/*.test.mjs"
   },
-  "devDependencies": {
-    "esbuild": "0.28.2",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
-  }
+  "devDependencies": {"esbuild":"0.28.2","qrcode":"1.5.4","react":"^19.3.1","react-dom":"^19.3.1"}
 }
