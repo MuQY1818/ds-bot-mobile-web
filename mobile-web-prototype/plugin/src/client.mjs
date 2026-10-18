@@ -2,10 +2,13 @@ import {createElement as h,useEffect,useSyncExternalStore} from 'react'
 import {createMobileClient} from '../../../mobile-host-adapter/client.mjs'
 import {createMobileNavigation} from './controller.mjs'
 import {createLayoutPreference} from './preference.mjs'
+import {createPhoneController} from './phone-controller.mjs'
+import {PhoneAccess} from './phone-access.mjs'
+import phoneCss from './phone.css'
 import css from './mobile.css'
 import {BotAvatar,RoomAvatar,botState} from '../../../ds-bot-upstream/ds-bot/src/client/mark.js'
 
-export const inject=['slots','uiWorkspace','sessions','connection']
+export const inject=['slots','uiWorkspace','sessions','connection','configForms']
 const connectionLabel=state=>state==='connected'?'已连接':state==='disconnected'?'已离线':'正在连接'
 const iconPaths={chat:['M5 4h14v11H9l-4 4V4Z'],team:['M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2','M16 4a4 4 0 0 1 0 8','M22 20v-2a4 4 0 0 0-3-3.87','M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0'],connection:['M3 9a15 15 0 0 1 18 0','M6 12a10 10 0 0 1 12 0','M9 15a5 5 0 0 1 6 0','M12 19h.01'],back:['m14 5-7 7 7 7'],search:['M21 21l-5-5','M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0']}
 function Icon({name}){return h('svg',{viewBox:'0 0 24 24',width:24,height:24,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},...(iconPaths[name]||[]).map((d,i)=>h('path',{d,key:i})))}
@@ -13,12 +16,13 @@ function Mascot({item,items,size=48}){
   if(item.kind==='room')return h(RoomAvatar,{room:item,roster:{byId:Object.fromEntries(items.filter(x=>x.kind==='bot').map(x=>[x.id,x]))},size})
   return h(BotAvatar,{bot:item,size,state:botState(item.running,item.activity,item.alert),main:item.isMain,live:true,gaze:size>=60})
 }
-export function MobileSettings({preference,view}){
+export function MobileSettings({preference,phone,view}){
   const enabled=useSyncExternalStore(preference.subscribe,preference.snapshot,preference.snapshot)
-  if(view==='summary')return '窄屏使用手机会话布局，宽屏保持桌面布局。'
+  if(view==='summary')return '手机会话布局、扫码登录与原版界面切换。'
   return h('div',null,
     h('label',null,h('input',{type:'checkbox','aria-label':'启用手机布局',checked:enabled,onChange:event=>preference.set(event.target.checked)}),' 启用手机布局'),
-    h('p',null,'仅保存在当前浏览器。关闭后恢复原版布局，可随时重新开启。'))
+    h('p',null,'仅保存在当前浏览器。关闭后恢复原版布局，可随时重新开启。'),
+    h('button',{type:'button',onClick:()=>phone.open()},'手机访问'))
 }
 export function MobileChrome({controller,preference}){
   const state=useSyncExternalStore(controller.subscribe,controller.snapshot,controller.snapshot)
@@ -69,8 +73,10 @@ export function apply(ctx){
   const preference=createLayoutPreference(storage)
   const api=createMobileClient({appRoot:new URL('./',location.href).href})
   const controller=createMobileNavigation({api,workspace:ctx.uiWorkspace,sessions:ctx.sessions,connection:ctx.connection,history:window.history})
+  const phone=createPhoneController({appRoot:new URL('./',location.href).href,form:ctx.configForms.get('mobile-layout-local')})
+  ctx.effect(()=>()=>phone.dispose())
   ctx.effect(()=>{
-    const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css;document.head.append(style)
+    const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+phoneCss;document.head.append(style)
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
     let timer,suspended=false
@@ -99,5 +105,6 @@ export function apply(ctx){
     }
   })
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference})},MobileChrome))
-  ctx.slots.inject('plugins.item',()=>ctx.slots.register({name:'plugins.item',id:'mobile-layout-local-settings',order:140,label:'手机布局',inject:()=>({preference})},MobileSettings))
+  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-phone-access',order:41,inject:()=>({phone})},PhoneAccess))
+  ctx.slots.inject('plugins.item',()=>ctx.slots.register({name:'plugins.item',id:'mobile-layout-local-settings',order:140,label:'手机布局',inject:()=>({preference,phone})},MobileSettings))
 }

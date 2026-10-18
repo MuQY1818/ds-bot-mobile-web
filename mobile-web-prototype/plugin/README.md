@@ -1,29 +1,47 @@
 # DS Bot 移动布局插件
 
-`dsh-mobile-layout-local@0.1.3` 为现有DSH Web增加手机导航、列表和布局，保留原版会话、输入框、流式回复、群聊、工具卡片和附件入口，不创建第二套Bot运行时。
+`dsh-mobile-layout-local@0.1.4` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
 
-## 构建与安装
+## 安装与更新
 
-从仓库根执行 `git submodule update --init --recursive`、`npm run setup`、`npm run check`、`npm run build`和`npm run pack`。需要Git、Node.js24+和npm。上游以固定submodule提供，精灵在构建时打包；React由现有DSH提供。
+在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `dsh-mobile-layout-local-0.1.4.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
 
-在现有DSH插件管理界面安装生成的 `artifacts/dsh-mobile-layout-local-0.1.3.tgz`，启用bundle后刷新页面。命令行安装先查当前版本 `dsh plugin --help`，确认目标profile和本地包参数。不要关闭认证、创建第二套DS Bot或替换团队。回滚仅停用新增bundle并刷新；当前页可用“原版”按钮撤去手机样式。
+完整教程：[安装](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/installation.md)、[远程访问](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/remote-access.md)、[故障排查](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/troubleshooting.md)。
+
+升级前保留旧包和校验值。回退优先通过管理器停用本新增 bundle 并刷新；不要删除 DS Bot、团队或会话。
+
+## 手机访问
+
+在电脑本机点击 DS Bot 左下角账户按钮，在“用量、连接器、Bot 设置”所在菜单中选择“手机访问”。面板提供二维码、复制登录链接、手动复制和刷新入口。
+
+如果没有可用地址，填写已经配置好的 HTTPS 手机入口并保存。该字段只记录地址，不创建隧道或添加域名信任；目标必须已经被宿主信任。使用已有私网时，手机也需要连接该私网。
+
+链接由宿主公开的 `connection.authenticatedUrl` 生成，二维码在本地编码。只有本机、同源、当前端口且已认证的浏览器所有者请求可以签发。远程手机页面不能为其他设备生成登录链接。二维码和完整链接包含访问权限，请只发给自己的设备。关闭面板清理界面中的链接，但不撤销已复制的链接；宿主重启后重新获取。
+
+DS Bot 账户菜单暂无公开菜单项插槽。独立入口通过限定的 `.bt-account-menu` DOM 适配加入，停用时移除；没有修改原 DS Bot 或 DSH 核心。菜单升级不兼容时，可从 DSH 插件设置页的“手机布局”打开同一面板。
 
 ## 布局开关与清理
 
-DSH 插件设置页的「手机布局」提供「启用手机布局」开关，与页面内「原版」和「手机布局」按钮同步。选择只保存在当前浏览器的 localStorage，不修改团队或宿主配置。停用 bundle 后会移除界面、样式、窗口监听、轮询和订阅，恢复原 viewport；浏览器保留布局偏好，便于重新安装时沿用。
+DSH 插件设置页的“启用手机布局”，与手机聊天页的“原版／手机布局”使用同一偏好，只保存在当前浏览器。停用 bundle 会移除界面、样式、监听、定时器和订阅，注销手机访问路由，恢复 viewport。浏览器布局偏好与宿主中保存的干净入口地址会保留。
 
-## 公开接法
+## 构建
 
-通过 `shell.overlay`贡献导航，使用同源 `api/bot`取得团队摘要，再通过 `uiWorkspace.openSession`进入原版main会话。聊天和发送继续由原renderer/composer处理；原版提交走 `/api/session/prompt`，不同于可选适配器的简化send。恢复时同步现有Session与团队，不自动重发消息，不因回前台强制重连。插件不读取Cookie/token，也不导入安装内部文件。
+从仓库根执行：
 
-## 精灵与许可
+```sh
+git submodule update --init --recursive
+npm run setup
+npm run check
+npm run build
+npm run pack
+```
 
-构建复用固定上游Apache-2.0的BotAvatar/BotMark/RoomAvatar/botState及角色资源，保留avatar、颜色、工作状态和群成员组合。SVG mask命名空间改为 `dsm-mark-`避免同页冲突。动效CSS来自现有DS Bot，尊重motion偏好和系统减少动态效果。来源和改动见NOTICE、LICENSE。
+需要 Git、Node.js 24+ 和 npm。固定上游只为构建提供必要精灵组件，不会另装成生产 DS Bot。React、React DOM 和公开 schema 服务由现有 DSH 提供；二维码依赖构建时打包。包不含安装生命周期脚本。
 
-## 兼容与验证状态
+## 接口与兼容
 
-独立组合环境为公开npm DSH0.2.0-rc.2、上游DS Bot0.1.7和仓库mock模型。已验证列表导航、正文增量、群归属、工具活动、离线草稿保留、恢复不自动重发、多种手机视口与精灵状态动画。9项前端控制器、14项宿主/订阅测试通过。
+导航使用公开 `shell.overlay`、`sessions`、`uiWorkspace`、`connection` 和 `slots`；入口设置使用公开 `configForms`。手机摘要来自同源 `api/bot`，发送仍走原 composer。恢复时不会新增自动重发。
 
-**正式宿主安装和iPhone Safari真机验收尚未完成。** 缩小视口不能代表软键盘或安全区；锁屏、长后台、网络切换、已接受但确认丢失仍有未覆盖场景。附件、问答和审批仅覆盖部分隔离流程。
+目标组合为 DSH `0.2.1-rc.2`、DS Bot `0.1.7`。已验证范围及限制见仓库的 `docs/validation.md`。窄屏 Chromium 不代表 iPhone Safari 的软键盘、安全区、锁屏和长后台全部通过。第三方运行时自注册精灵形状也不一定共享到本插件的独立 registry。
 
-CSS使用现有data标记和部分编译class后缀，这是随宿主升级回归的样式适配。其他布局插件、宿主更新和Bot/Agent模式切换需验证。公开仓库不包含聊天、截图、录屏、登录资料或设备配置。
+精灵来源、SVG mask 调整、二维码编码器及其依赖的版权文本见 `NOTICE` 和 `LICENSE`。公开材料不含真实团队、聊天、凭据或设备配置；文档图片只使用隔离演示数据。

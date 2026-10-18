@@ -1,11 +1,40 @@
 # 架构与边界
 
-移动插件贡献 `shell.overlay` 导航和响应式CSS，使用公开 `sessions`、`uiWorkspace`、`connection`、`slots`。列表请求同源POST `api/bot`，格式 `{endpoint,payload}`；Bot以当前sessionId导航，群使用公开room.id。不会订阅隐藏群成员Session。
+## 会话与导航
 
-实际聊天保留原DSH/DS Bot renderer和composer。原版提交走 `/api/session/prompt`，使用Session submission/requestId，区别于可选适配器的 `/api/bot` send。连接恢复由DSH自身Mux和seq修复负责；布局不自动重发消息。
+移动插件通过公开 `shell.overlay` 贡献手机导航和响应式样式，使用 `sessions`、`uiWorkspace`、`connection`、`slots`。列表请求同源 `api/bot`，Bot 按当前 `sessionId` 导航，群使用公开 room id，不订阅隐藏的群成员 Session。
 
-`mobile-host-adapter/conversation-feed.mjs`仅在已有DSH客户端组合里可用，负责retain/ready、Chat目标和逐节点订阅，以及翻页、关闭释放。它不是独立静态HTML的DSH运行时。
+聊天保留原 DSH／DS Bot renderer 和 composer。消息提交仍由原版的 `/api/session/prompt` 处理，连接与流式恢复也由宿主负责。布局插件不因前台恢复而自动重发草稿。
 
-精灵由固定上游的mark.js及依赖在构建时打包；运行时沿用现有DS Bot动效CSS、真实工作状态与motion偏好。独立SVG mask命名空间避免与原版同页重复ID。内置形状、配置颜色和头像图片受支持；其他插件在运行时自注册的shape位于各自模块registry，不会自动共享到这里单独打包的精灵registry，不能承诺第三方自定义形状完全一致。
+`mobile-host-adapter/conversation-feed.mjs` 是可选协议封装，只在已有 DSH 客户端组合中处理 retain、ready、逐节点订阅、翻页与释放。它不是一个可独立部署的静态聊天运行时，手机 Web 不需要另装原生 bridge。
 
-CSS仍依赖宿主DOM标记和部分class后缀。宿主升级、其他布局插件、Safari键盘和安全区均须实测。只通过公开插件管理加装/停用，不patch宿主、不导入安装内部文件、不迁移用户数据。
+## 手机访问入口
+
+v0.1.4 的账户菜单没有修改原 DS Bot 源码。DS Bot 当前未提供公开的账户菜单项插槽，因此插件只观察 `document.body` 的直接子节点，在 `.bt-account-menu` 出现时加入一个自己的入口，关闭或停用时移除。它不观察整棵流式消息 DOM，也不复制原菜单或覆盖原操作。
+
+弹窗通过公开 `shell.overlay` 注册。DSH 插件设置页“手机布局”提供同一入口，作为菜单适配失效时的备用路径。这个 DOM 适配仍有上游升级风险，需要回归，不能称为完全脱离 DOM 的接口集成。
+
+## 地址与官方认证
+
+宿主插件声明 `phoneUrl` 为可实时更新的配置字段。浏览器通过公开 `configForms` 保存这个干净地址；留空时读取公开 `webApp.getAdvertisedUrl()`。地址设置不等于网络转发或域名授信，插件不会修改 `trustedHosts`、Tailscale、DNS 或防火墙。
+
+`POST /api/dsh-mobile-layout/phone-access` 用于检查入口或取得当前官方登录链接。它要求：
+
+- 请求来自本机 socket，Host 是当前监听端口的本机地址，并带同源 Origin。
+- 使用 DSH `connection.admit()` 验证，且属于宿主的浏览器所有者 Peer；其他 API Peer 不能签发浏览器登录凭据。
+- JSON 请求不超过 2 KiB；不接受任意字段、未知动作或跨源请求。
+- 目标是干净的非本机 HTTPS 地址，且通过宿主精确 Host／Origin 信任检查。
+
+通过后，插件调用公开 `connection.authenticatedUrl()`，并检查返回 URL 的 authority、挂载路径和查询字段。前端不会把本机 token URL 改写成远程主机名。接口不 fetch 用户填写的地址，也不执行网络配置命令。
+
+响应使用 `no-store, private` 和 `no-referrer`。登录链接只在面板打开时保存在内存中，关闭、取消请求或卸载时清理，不放入 localStorage、历史记录、日志或分析事件。二维码编码器直接在浏览器中生成黑白 SVG，不向第三方二维码服务发送链接。
+
+关闭弹窗清理的是本插件持有的凭据，不会撤销已经复制的链接或现有会话。“刷新入口”也不承诺轮换 DSH 的进程凭据。宿主重启后的链接和会话行为由 DSH 认证配置决定。
+
+## 样式、精灵与生命周期
+
+布局偏好保存在当前浏览器；关闭手机布局后停止定期团队刷新。停用 bundle 会释放会话与设置订阅、定时器、窗口监听、菜单适配、弹窗和样式，并注销宿主路由、恢复 viewport。
+
+精灵由固定上游的 `mark.js` 及必要依赖在构建时打包，使用原 DS Bot 的动效样式和真实工作状态。独立 SVG mask 命名空间避免同页冲突。内置形状、配置颜色和头像图片受支持；第三方插件运行时自注册的 shape 位于另一份 registry，不保证自动共享。
+
+响应式样式仍依赖部分宿主 DOM 标记与 class 后缀。DSH／DS Bot 更新、其他布局插件、Bot／Agent 模式以及 Safari 软键盘和后台恢复都需要按[验证说明](validation.md)回归。插件不 patch DSH 核心，也不读取安装包内部文件。
