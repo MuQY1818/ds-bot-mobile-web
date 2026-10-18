@@ -1,10 +1,10 @@
 # DS Bot 移动布局插件
 
-`ds-bot-mobile-web@0.3.0` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
+`ds-bot-mobile-web@0.4.0` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
 
 ## 安装与更新
 
-在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `ds-bot-mobile-web-0.3.0.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
+在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `ds-bot-mobile-web-0.4.0.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
 
 完整教程：[安装](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/installation.md)、[远程访问](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/remote-access.md)、[故障排查](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/troubleshooting.md)。
 
@@ -45,3 +45,5 @@ npm run pack
 目标组合为 DSH `0.2.1-rc.2`、DS Bot `0.1.7`。已验证范围及限制见仓库的 `docs/validation.md`。窄屏 Chromium 不代表 iPhone Safari 的软键盘、安全区、锁屏和长后台全部通过。第三方运行时自注册精灵形状也不一定共享到本插件的独立 registry。
 
 精灵来源、SVG mask 调整、二维码编码器及其依赖的版权文本见 `NOTICE` 和 `LICENSE`。公开材料不含真实团队、聊天、凭据或设备配置；文档图片只使用隔离演示数据。
+
+当前统一入口从“手机访问 → Web”登录浏览器；兼容的App配套插件启用时增加App标签。两包单独启用仍可用，切换标签会清理上一模式的二维码与请求。

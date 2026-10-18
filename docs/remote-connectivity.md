@@ -55,3 +55,31 @@ Cloudflare Access 可提供额外入口保护，但当前原生 SDK 没有实现
 - [Tunnel 可用性](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-availability/)
 
 Cloudflare 资料已使用 Context7 解析官方文档库后核对。项目实现以以上固定源码提交为证据；上游更新后应重新检查。
+
+## 不购买域名的持久地址
+
+Cloudflare Named Tunnel 的固定自定义主机名通常需要自己控制的域名，但“持久连接”不只这一种实现。以下方案不要求购买域名：
+
+| 方案 | 固定地址 | 主要限制 |
+| --- | --- | --- |
+| 已有 Tailscale MagicDNS / Serve | 同一机器与 tailnet 保留时稳定 | 手机需连接私网；NAT 不能直连时走中继 |
+| ngrok Free dev domain | 账号分配一个固定域名，重启可复用 | 每月1GB出站、2万HTTP请求，HTML首次有访问提示 |
+| Cloudflare workers.dev + SQLite Durable Objects | Worker与账号子域名保留时稳定 | 需要额外实现电脑出站中继、HTTP/WS转发与恢复 |
+
+ngrok适合短期比较。当前Web约每1.5秒轮询一次，仅连续前台轮询约8.3小时便可能用完2万次月请求，尚未计资源与其他API。一个免费dev domain还需稳定本机网关按路径分流Web与Bridge两个端口。浏览器首次提示和原生WebSocket握手应分别验收。
+
+Cloudflare为个人项目提供免费的 `worker.account.workers.dev` 地址。Workers Free及SQLite Durable Objects各有独立额度；DO可接受电脑和手机两条出站建立的WebSocket并转发消息，使用Hibernation API减少空闲运行成本。该方案是新的中继功能，不能将workers.dev直接填为现有隧道就声称可用。需要账号、稳定host identity、relay认证、重连、流控、受控路由，以及保留现有DSH owner与Bridge设备鉴权。
+
+固定地址不等于永不断线。电脑离线期间仍不可访问；恢复后App沿用配对的前提是Bridge home/serverId、设备凭据和HTTPS origin均保留。DSH Web宿主重启后的重新登录行为另由宿主认证决定。
+
+官方依据：
+
+- [ngrok免费方案限制](https://ngrok.com/docs/pricing-limits/free-plan-limits)
+- [ngrok WebSocket](https://ngrok.com/docs/using-ngrok-with/websockets)
+- [workers.dev地址](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
+- [Workers限制](https://developers.cloudflare.com/workers/platform/limits/)
+- [Durable Objects额度](https://developers.cloudflare.com/durable-objects/platform/pricing/)
+- [DO WebSocket休眠](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
+- [Tailscale连接类型](https://tailscale.com/docs/reference/connection-types)
+
+以上资料于2026-10-18通过Context7与官方文档核对，免费方案和配额可能变化。当前版本未部署新中继服务。

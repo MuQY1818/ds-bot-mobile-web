@@ -1853,7 +1853,7 @@ __export(client_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(client_exports);
-var import_react3 = require("react");
+var import_react4 = require("react");
 
 // ../../mobile-host-adapter/client.mjs
 var failure = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
@@ -2322,11 +2322,7 @@ function createPhoneController({ appRoot, form, fetchImpl = fetch }) {
 
 // src/phone-access.mjs
 var import_react = require("react");
-var import_react_dom = require("react-dom");
 var import_qrcode = __toESM(require_qrcode(), 1);
-function PhoneIcon() {
-  return (0, import_react.createElement)("svg", { viewBox: "0 0 24 24", width: 20, height: 20, fill: "none", stroke: "currentColor", strokeWidth: 1.7, "aria-hidden": true }, (0, import_react.createElement)("rect", { x: 6, y: 2.5, width: 12, height: 19, rx: 3 }), (0, import_react.createElement)("path", { d: "M10 18h4" }));
-}
 function phoneQr(value) {
   const code = import_qrcode.default.create(value, { errorCorrectionLevel: "M" }), size = code.modules.size, parts = [];
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (code.modules.get(y, x)) parts.push(`M${x + 4} ${y + 4}h1v1h-1z`);
@@ -2336,22 +2332,168 @@ function Qr({ value }) {
   const qr = phoneQr(value);
   return (0, import_react.createElement)("svg", { className: "dsm-phone-qr", viewBox: `0 0 ${qr.size} ${qr.size}`, width: 224, height: 224, role: "img", "aria-label": "手机登录二维码", shapeRendering: "crispEdges" }, (0, import_react.createElement)("rect", { width: "100%", height: "100%", fill: "#fff" }), (0, import_react.createElement)("path", { d: qr.path, fill: "#000" }));
 }
-function AccountPhoneEntry({ phone }) {
-  const [container, setContainer] = (0, import_react.useState)(null);
+function WebAccessPanel({ phone }) {
+  const state = (0, import_react.useSyncExternalStore)(phone.subscribe, phone.snapshot, phone.snapshot);
+  const form = (0, import_react.useSyncExternalStore)((listener) => phone.form.subscribe(listener), () => phone.form.getSnapshot(), () => phone.form.getSnapshot());
+  const [editing, setEditing] = (0, import_react.useState)(false), [address, setAddress] = (0, import_react.useState)(() => form.value?.phoneUrl ?? ""), [saving, setSaving] = (0, import_react.useState)(false);
   (0, import_react.useEffect)(() => {
+    phone.open();
+    return () => phone.close();
+  }, [phone]);
+  const ready = state.status === "ready" && Boolean(state.loginUrl), configure = editing || !ready && !state.loading && ["not-configured", "local-only", "invalid-url", "needs-https", "not-trusted"].includes(state.status);
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    const ok = await phone.configure(address);
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+  return (0, import_react.createElement)(
+    "section",
+    { className: "dsm-phone-panel", "aria-label": "Web 浏览器登录" },
+    (0, import_react.createElement)("div", { className: "dsm-phone-status", role: "status", "data-ready": ready }, (0, import_react.createElement)("span", { "aria-hidden": true }), state.loading ? "正在读取入口…" : ready ? "登录入口已就绪" : "手机入口尚未就绪"),
+    ready ? (0, import_react.createElement)(
+      "div",
+      { className: "dsm-phone-ready" },
+      (0, import_react.createElement)(Qr, { value: state.loginUrl }),
+      (0, import_react.createElement)("p", { className: "dsm-phone-scan" }, "用手机相机扫描，在浏览器中打开。"),
+      (0, import_react.createElement)("p", { className: "dsm-phone-address" }, state.baseUrl),
+      (0, import_react.createElement)("button", { type: "button", className: "dsm-phone-primary", onClick: () => phone.copy(navigator.clipboard) }, state.copied ? "已复制登录链接" : "复制登录链接"),
+      (0, import_react.createElement)("details", { className: "dsm-phone-manual" }, (0, import_react.createElement)("summary", null, "手动复制链接"), (0, import_react.createElement)("textarea", { "aria-label": "手机登录链接", readOnly: true, value: state.loginUrl, onFocus: (event) => event.target.select() })),
+      (0, import_react.createElement)("div", { className: "dsm-phone-actions" }, (0, import_react.createElement)("button", { type: "button", onClick: () => phone.refresh() }, "刷新入口"), (0, import_react.createElement)("button", { type: "button", onClick: () => {
+        setAddress(form.value?.phoneUrl ?? state.baseUrl);
+        setEditing((value) => !value);
+      } }, "修改地址"))
+    ) : (0, import_react.createElement)("p", { className: "dsm-phone-help" }, state.loading ? "请保持电脑和手机联网。" : phoneStatusText(state.status)),
+    configure ? (0, import_react.createElement)("form", { className: "dsm-phone-config", onSubmit: save }, (0, import_react.createElement)("label", { htmlFor: "dsm-phone-url" }, "手机访问地址"), (0, import_react.createElement)("input", { id: "dsm-phone-url", type: "url", value: address, onChange: (event) => setAddress(event.target.value), placeholder: "https://dsh.example.com/", autoComplete: "off", spellCheck: false, required: true }), (0, import_react.createElement)("p", null, "填写已配置且受宿主信任的 HTTPS 入口。"), (0, import_react.createElement)("button", { type: "submit", disabled: saving || form.status !== "ready" || !form.writable }, saving ? "正在保存…" : "保存并检查")) : null,
+    state.error ? (0, import_react.createElement)("p", { className: "dsm-phone-error", role: "alert" }, state.error) : null,
+    (0, import_react.createElement)("p", { className: "dsm-phone-note" }, "请只向自己的设备提供登录链接，电脑需保持运行。")
+  );
+}
+
+// src/mobile-access-registry.mjs
+var REGISTRY_KEY = /* @__PURE__ */ Symbol.for("ds-bot.mobile-access.v1");
+function createMobileAccessRegistry({ onEmpty = () => {
+} } = {}) {
+  const providers = /* @__PURE__ */ new Map(), listeners = /* @__PURE__ */ new Set();
+  let serial = 0;
+  let state = Object.freeze({ open: false, activeId: null, leader: null, providers: Object.freeze([]) });
+  const notify = () => {
+    for (const listener of [...listeners]) listener();
+  };
+  const publish = (patch) => {
+    if (Object.entries(patch).every(([key, value]) => state[key] === value)) return;
+    state = Object.freeze({ ...state, ...patch });
+    notify();
+  };
+  const rebuild = () => {
+    const available = Object.freeze([...providers.values()].map((entry) => entry.provider).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id)));
+    const activeId = available.some((entry) => entry.id === state.activeId) ? state.activeId : available[0]?.id ?? null;
+    publish({ providers: available, leader: available[0]?.id ?? null, activeId, open: available.length > 0 && state.open });
+  };
+  const store = Object.freeze({
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    getSnapshot: () => state,
+    // An ordinary account-menu open preserves the last selected available mode.
+    open(id = state.activeId) {
+      if (!providers.has(id)) return false;
+      publish({ open: true, activeId: id });
+      return true;
+    },
+    close() {
+      publish({ open: false });
+    },
+    select(id) {
+      if (!providers.has(id)) return false;
+      publish({ activeId: id });
+      return true;
+    }
+  });
+  return Object.freeze({
+    version: 1,
+    store,
+    register({ id, label, order = 0, render }) {
+      if (typeof id !== "string" || !id.trim() || typeof label !== "string" || !label.trim() || typeof render !== "function" || !Number.isFinite(order)) {
+        throw new TypeError("A mobile access provider needs an id, label, finite order and render function.");
+      }
+      const token = Symbol(id);
+      const provider = Object.freeze({ id, label, order, render, instance: ++serial });
+      providers.set(id, { token, provider });
+      rebuild();
+      let disposed = false;
+      const isCurrent = () => !disposed && providers.get(id)?.token === token;
+      return Object.freeze({
+        id,
+        store,
+        isCurrent,
+        open() {
+          return isCurrent() ? store.open(id) : false;
+        },
+        dispose() {
+          if (disposed) return;
+          const current = isCurrent();
+          disposed = true;
+          if (!current) return;
+          providers.delete(id);
+          rebuild();
+          if (!providers.size) {
+            listeners.clear();
+            onEmpty();
+          }
+        }
+      });
+    }
+  });
+}
+function registerMobileAccessProvider(provider) {
+  let registry = globalThis[REGISTRY_KEY];
+  if (!registry) {
+    registry = createMobileAccessRegistry({ onEmpty() {
+      if (globalThis[REGISTRY_KEY] === registry) delete globalThis[REGISTRY_KEY];
+    } });
+    const access = registry.register(provider);
+    Object.defineProperty(globalThis, REGISTRY_KEY, { value: registry, configurable: true });
+    return access;
+  }
+  if (registry.version !== 1 || typeof registry.register !== "function") throw new Error("Incompatible mobile access registry.");
+  return registry.register(provider);
+}
+
+// src/mobile-access-shell.mjs
+var import_react2 = require("react");
+var import_react_dom = require("react-dom");
+
+// src/mobile-access.css
+var mobile_access_default = '.dsb-access-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.3);backdrop-filter:blur(4px);color:var(--bt-ink,#171717);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}\n.dsb-access-dialog{display:flex;flex-direction:column;box-sizing:border-box;width:500px;max-width:100%;max-height:calc(100dvh - 48px);overflow:hidden;padding:24px;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:24px;background:var(--bt-main,#fff);box-shadow:0 22px 80px rgba(0,0,0,.2)}\n.dsb-access-dialog *{box-sizing:border-box}.dsb-access-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.dsb-access-heading>div{display:flex;align-items:center;gap:10px}.dsb-access-heading h1{margin:0;font-size:21px;line-height:30px;font-weight:650;letter-spacing:-.4px}\n.dsb-access-close{display:grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer}.dsb-access-close:hover{background:var(--bt-hover,#f0f0f0)}\n.dsb-access-description{flex:none;margin:8px 0 22px;color:var(--bt-ink-2,#666);font-size:14px;line-height:22px}.dsb-access-tabs{display:flex;flex:none;gap:4px;margin:0 0 20px;padding:4px;border-radius:14px;background:var(--bt-hover,#f1f1f1)}\n.dsb-access-tabs>button{flex:1;min-width:0;min-height:40px;padding:8px 14px;border:0;border-radius:11px;background:transparent;color:var(--bt-ink-2,#666);font:inherit;font-weight:550;cursor:pointer}.dsb-access-tabs>button[aria-selected=true]{background:var(--bt-main,#fff);color:var(--bt-ink,#171717);box-shadow:0 1px 4px rgba(0,0,0,.07)}\n.dsb-access-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;overflow-wrap:anywhere;scrollbar-width:thin;padding:0 2px 2px;outline-offset:-2px}.dsb-access-dialog :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:2px}.dsb-access-body:focus-visible{outline-offset:-2px}\n@media(max-width:560px){.dsb-access-backdrop{padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))}.dsb-access-dialog{width:100%;max-height:calc(100dvh - max(24px,env(safe-area-inset-top) + env(safe-area-inset-bottom)));padding:20px;border-radius:22px}.dsb-access-heading h1{font-size:20px}.dsb-access-description{font-size:13px;margin-bottom:18px}.dsb-access-tabs{margin-bottom:18px}}\n@media(prefers-reduced-motion:reduce){.dsb-access-dialog *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}\n';
+
+// src/mobile-access-shell.mjs
+function PhoneIcon() {
+  return (0, import_react2.createElement)(
+    "svg",
+    { viewBox: "0 0 24 24", width: 21, height: 21, fill: "none", stroke: "currentColor", strokeWidth: 1.7, "aria-hidden": true },
+    (0, import_react2.createElement)("rect", { x: 6, y: 2.5, width: 12, height: 19, rx: 3 }),
+    (0, import_react2.createElement)("path", { d: "M10 18h4" })
+  );
+}
+function AccountEntry({ store }) {
+  const [container, setContainer] = (0, import_react2.useState)(null);
+  (0, import_react2.useEffect)(() => {
     let owned;
     const sync = () => {
       const menu = document.querySelector(".bt-account-menu");
       if (owned?.parentElement === menu) return;
       owned?.remove();
       owned = void 0;
-      setContainer(null);
-      if (!menu) return;
-      owned = document.createElement("div");
-      owned.dataset.dsmPhoneEntry = "true";
-      owned.style.display = "contents";
-      menu.insertBefore(owned, menu.querySelector("[role=separator]"));
-      setContainer(owned);
+      if (menu) {
+        owned = document.createElement("div");
+        owned.dataset.dsbMobileAccessEntry = "true";
+        owned.style.display = "contents";
+        menu.insertBefore(owned, menu.querySelector("[role=separator]"));
+      }
+      setContainer(owned ?? null);
     };
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true });
@@ -2362,31 +2504,35 @@ function AccountPhoneEntry({ phone }) {
     };
   }, []);
   if (!container) return null;
-  return (0, import_react_dom.createPortal)((0, import_react.createElement)("button", { type: "button", role: "menuitem", className: "dsm-menu-phone", onClick: () => {
-    document.querySelector(".bt-account[aria-expanded=true]")?.click();
-    phone.open();
-  } }, (0, import_react.createElement)(PhoneIcon), (0, import_react.createElement)("span", { className: "bt-menu-label" }, "手机访问")), container);
+  return (0, import_react_dom.createPortal)((0, import_react2.createElement)("button", {
+    type: "button",
+    role: "menuitem",
+    className: "dsb-access-menu-entry",
+    onClick() {
+      document.querySelector(".bt-account[aria-expanded=true]")?.click();
+      store.open();
+    }
+  }, (0, import_react2.createElement)(PhoneIcon), (0, import_react2.createElement)("span", { className: "bt-menu-label" }, "手机访问")), container);
 }
-function PhoneDialog({ phone }) {
-  const state = (0, import_react.useSyncExternalStore)(phone.subscribe, phone.snapshot, phone.snapshot);
-  const form = (0, import_react.useSyncExternalStore)((listener) => phone.form.subscribe(listener), () => phone.form.getSnapshot(), () => phone.form.getSnapshot());
-  const [editing, setEditing] = (0, import_react.useState)(false), [address, setAddress] = (0, import_react.useState)(""), [saving, setSaving] = (0, import_react.useState)(false);
-  const root = (0, import_react.useRef)(null), close = (0, import_react.useRef)(null), restoreFocus = (0, import_react.useRef)(null);
-  (0, import_react.useEffect)(() => {
-    if (!state.open) return;
-    restoreFocus.current = document.activeElement;
-    setEditing(false);
-    setAddress(form.value?.phoneUrl ?? "");
-    close.current?.focus();
-    const key = (event) => {
+function ProviderContent({ provider }) {
+  return provider.render();
+}
+function AccessDialog({ store, state }) {
+  const root = (0, import_react2.useRef)(null), closeButton = (0, import_react2.useRef)(null), tabs = (0, import_react2.useRef)(null);
+  const uid = (0, import_react2.useId)();
+  const active = state.providers.find((provider) => provider.id === state.activeId);
+  (0, import_react2.useEffect)(() => {
+    const previous = document.activeElement;
+    closeButton.current?.focus();
+    const onKey = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        phone.close();
+        store.close();
         return;
       }
-      if (event.key !== "Tab") return;
-      const controls = [...root.current.querySelectorAll('button:not([disabled]),input,textarea,a[href],summary,[tabindex]:not([tabindex="-1"])')].filter((node) => node.getClientRects().length);
+      if (event.key !== "Tab" || !root.current) return;
+      const controls = [...root.current.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),a[href],summary,[tabindex]:not([tabindex="-1"])')].filter((node) => node.tabIndex >= 0 && node.getClientRects().length && !node.closest("[inert],[hidden]"));
       const first = controls[0], last = controls.at(-1);
       if (!root.current.contains(document.activeElement)) {
         event.preventDefault();
@@ -2399,99 +2545,89 @@ function PhoneDialog({ phone }) {
         first?.focus();
       }
     };
-    document.addEventListener("keydown", key, true);
+    const onFocus = (event) => {
+      if (root.current && !root.current.contains(event.target)) closeButton.current?.focus();
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("focusin", onFocus);
     return () => {
-      document.removeEventListener("keydown", key, true);
-      const prior = restoreFocus.current;
-      if (prior?.isConnected && prior !== document.body) prior.focus();
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("focusin", onFocus);
+      if (previous?.isConnected && previous !== document.body) previous.focus();
       else document.querySelector(".bt-account")?.focus();
     };
-  }, [state.open, phone]);
-  (0, import_react.useEffect)(() => {
-    if (state.open && root.current && !root.current.contains(document.activeElement)) close.current?.focus();
-  }, [state.open, state.loading, state.status, editing]);
-  if (!state.open) return null;
-  const ready = state.status === "ready" && Boolean(state.loginUrl), configure = editing || !ready && !state.loading && ["not-configured", "local-only", "invalid-url", "needs-https", "not-trusted"].includes(state.status);
-  const save = async (event) => {
+  }, [store]);
+  const onTabKey = (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    setSaving(true);
-    const ok = await phone.configure(address);
-    setSaving(false);
-    if (ok) setEditing(false);
+    event.stopPropagation();
+    const all = [...tabs.current.querySelectorAll("[role=tab]")];
+    const current = Math.max(0, all.indexOf(event.target));
+    const next = event.key === "Home" ? 0 : event.key === "End" ? all.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + all.length) % all.length;
+    const provider = state.providers[next];
+    if (provider) {
+      store.select(provider.id);
+      all[next]?.focus();
+    }
   };
-  return (0, import_react.createElement)(
-    "div",
-    { className: "dsm-phone-backdrop", onMouseDown: (event) => {
-      if (event.target === event.currentTarget) phone.close();
-    } },
-    (0, import_react.createElement)(
-      "section",
-      { ref: root, className: "dsm-phone-dialog", role: "dialog", "aria-modal": true, "aria-labelledby": "dsm-phone-heading" },
-      (0, import_react.createElement)("header", null, (0, import_react.createElement)("div", { className: "dsm-phone-heading" }, (0, import_react.createElement)(PhoneIcon), (0, import_react.createElement)("h1", { id: "dsm-phone-heading" }, "手机访问")), (0, import_react.createElement)("button", { ref: close, type: "button", className: "dsm-phone-close", "aria-label": "关闭手机访问", onClick: () => phone.close() }, "×")),
-      (0, import_react.createElement)("p", { className: "dsm-phone-intro" }, "在手机上接着聊，继续使用同一支 Bot 团队。"),
-      (0, import_react.createElement)("div", { className: "dsm-phone-status", role: "status", "data-ready": ready }, (0, import_react.createElement)("span", { "aria-hidden": true }), state.loading ? "正在读取入口…" : ready ? "登录入口已就绪" : "手机入口尚未就绪"),
-      ready ? (0, import_react.createElement)(
-        "div",
-        { className: "dsm-phone-ready" },
-        (0, import_react.createElement)(Qr, { value: state.loginUrl }),
-        (0, import_react.createElement)("p", { className: "dsm-phone-scan" }, "用手机相机扫描，在浏览器中打开。"),
-        (0, import_react.createElement)("p", { className: "dsm-phone-address" }, state.baseUrl),
-        (0, import_react.createElement)("button", { type: "button", className: "dsm-phone-primary", onClick: () => phone.copy(navigator.clipboard) }, state.copied ? "已复制登录链接" : "复制登录链接"),
-        (0, import_react.createElement)("details", { className: "dsm-phone-manual" }, (0, import_react.createElement)("summary", null, "手动复制登录链接"), (0, import_react.createElement)("textarea", { "aria-label": "手机登录链接", readOnly: true, value: state.loginUrl, onFocus: (event) => event.target.select() })),
-        (0, import_react.createElement)("div", { className: "dsm-phone-actions" }, (0, import_react.createElement)("button", { type: "button", onClick: () => phone.refresh() }, "刷新入口"), (0, import_react.createElement)("button", { type: "button", onClick: () => {
-          setAddress(form.value?.phoneUrl ?? state.baseUrl);
-          setEditing((value) => !value);
-        } }, "修改地址"))
-      ) : (0, import_react.createElement)("p", { className: "dsm-phone-help" }, state.loading ? "请保持电脑和手机联网。" : phoneStatusText(state.status)),
-      configure ? (0, import_react.createElement)("form", { className: "dsm-phone-config", onSubmit: save }, (0, import_react.createElement)("label", { htmlFor: "dsm-phone-url" }, "手机访问地址"), (0, import_react.createElement)("input", { id: "dsm-phone-url", type: "url", value: address, onChange: (event) => setAddress(event.target.value), placeholder: "https://dsh.example.com/", autoComplete: "off", spellCheck: false, required: true }), (0, import_react.createElement)("p", null, "填写已配置且受宿主信任的 HTTPS 入口。这里只保存地址，不会开放端口或建立隧道。"), (0, import_react.createElement)("button", { type: "submit", disabled: saving || form.status !== "ready" || !form.writable }, saving ? "正在保存…" : "保存并检查")) : null,
-      state.error ? (0, import_react.createElement)("p", { className: "dsm-phone-error", role: "alert" }, state.error) : null,
-      (0, import_react.createElement)("footer", null, (0, import_react.createElement)("p", null, "登录链接包含访问权限，请只发给自己。宿主重启后重新打开此面板获取。"), (0, import_react.createElement)("p", null, "电脑需保持运行；使用私网入口时，手机也要连接对应私网。"))
+  return (0, import_react_dom.createPortal)((0, import_react2.createElement)("div", {
+    className: "dsb-access-backdrop",
+    onMouseDown(event) {
+      if (event.target === event.currentTarget) store.close();
+    }
+  }, (0, import_react2.createElement)(
+    "section",
+    { ref: root, className: "dsb-access-dialog", role: "dialog", "aria-modal": true, "aria-labelledby": `${uid}-heading`, "aria-describedby": `${uid}-description` },
+    (0, import_react2.createElement)(
+      "header",
+      { className: "dsb-access-heading" },
+      (0, import_react2.createElement)("div", null, (0, import_react2.createElement)(PhoneIcon), (0, import_react2.createElement)("h1", { id: `${uid}-heading` }, "手机访问")),
+      (0, import_react2.createElement)(
+        "button",
+        { ref: closeButton, type: "button", className: "dsb-access-close", "aria-label": "关闭手机访问", onClick: () => store.close() },
+        (0, import_react2.createElement)("svg", { viewBox: "0 0 24 24", width: 21, height: 21, fill: "none", stroke: "currentColor", strokeWidth: 1.8, "aria-hidden": true }, (0, import_react2.createElement)("path", { d: "m6 6 12 12M18 6 6 18" }))
+      )
+    ),
+    (0, import_react2.createElement)("p", { id: `${uid}-description`, className: "dsb-access-description" }, "在手机上接着聊，继续使用同一支 Bot 团队。"),
+    (0, import_react2.createElement)(
+      "div",
+      { ref: tabs, role: "tablist", "aria-label": "手机访问方式", className: "dsb-access-tabs", onKeyDown: onTabKey },
+      ...state.providers.map((provider) => (0, import_react2.createElement)("button", {
+        key: provider.id,
+        id: `${uid}-tab-${provider.id}`,
+        type: "button",
+        role: "tab",
+        "aria-selected": provider.id === state.activeId,
+        "aria-controls": `${uid}-panel`,
+        tabIndex: provider.id === state.activeId ? 0 : -1,
+        onClick: () => store.select(provider.id)
+      }, provider.label))
+    ),
+    (0, import_react2.createElement)(
+      "div",
+      { className: "dsb-access-body", id: `${uid}-panel`, role: "tabpanel", "aria-labelledby": `${uid}-tab-${state.activeId}`, tabIndex: 0 },
+      active ? (0, import_react2.createElement)(ProviderContent, { key: `${active.id}:${active.instance}`, provider: active }) : null
     )
-  );
+  )), document.body);
 }
-function PhoneAccess({ phone }) {
-  return (0, import_react.createElement)("div", null, (0, import_react.createElement)(AccountPhoneEntry, { phone }), (0, import_react.createElement)(PhoneDialog, { phone }));
+function LeaderHost({ store, state }) {
+  (0, import_react2.useEffect)(() => {
+    const style = document.createElement("style");
+    style.dataset.dsbMobileAccess = "true";
+    style.textContent = mobile_access_default;
+    document.head.append(style);
+    return () => style.remove();
+  }, []);
+  return (0, import_react2.createElement)("div", { className: "dsb-access-host" }, (0, import_react2.createElement)(AccountEntry, { store }), state.open ? (0, import_react2.createElement)(AccessDialog, { store, state }) : null);
+}
+function MobileAccessHost({ access }) {
+  const state = (0, import_react2.useSyncExternalStore)(access.store.subscribe, access.store.getSnapshot, access.store.getSnapshot);
+  if (state.leader !== access.id || !access.isCurrent()) return null;
+  return (0, import_react2.createElement)(LeaderHost, { store: access.store, state });
 }
 
 // src/phone.css
-var phone_default = `/* AccountPhoneEntry uses DS Bot's .bt-menu button styles, including typography,
-   spacing, icon size and hover state. Keep its menu row free of local overrides. */
-.dsm-phone-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.28);color:var(--bt-ink,#141414);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backdrop-filter:blur(3px)}
-.dsm-phone-dialog{box-sizing:border-box;width:480px;max-width:100%;max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:20px;background:var(--bt-main,#fcfcfc);padding:24px;box-shadow:0 18px 70px rgba(0,0,0,.18)}
-.dsm-phone-dialog *{box-sizing:border-box}
-.dsm-phone-dialog header,.dsm-phone-heading{display:flex;align-items:center;gap:10px}
-.dsm-phone-dialog header{justify-content:space-between}
-.dsm-phone-dialog h1{margin:0;font-size:20px;line-height:28px;font-weight:600}
-.dsm-phone-dialog button,.dsm-phone-dialog input,.dsm-phone-dialog textarea{font:inherit}
-.dsm-phone-close{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font-size:28px!important;cursor:pointer}
-.dsm-phone-close:hover{background:var(--bt-hover,rgba(127,127,127,.12))}
-.dsm-phone-intro{margin:10px 0 20px;color:var(--bt-ink-2,#555)}
-.dsm-phone-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--bt-ink-2,#555)}
-.dsm-phone-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}
-.dsm-phone-status[data-ready=true]>span{background:var(--bt-green,#00a56a)}
-.dsm-phone-ready{text-align:center}
-.dsm-phone-qr{display:block;max-width:100%;height:auto;margin:18px auto 10px;border-radius:8px;background:white}
-.dsm-phone-scan{margin:8px 0 2px}
-.dsm-phone-address{margin:0 0 18px;font-size:12px;color:var(--bt-ink-2,#555);overflow-wrap:anywhere}
-.dsm-phone-primary,.dsm-phone-config button{min-height:44px;border:0;border-radius:12px;padding:10px 20px;background:var(--bt-user,#070707);color:var(--bt-user-ink,#fcfcfc);cursor:pointer}
-.dsm-phone-primary{width:100%;font-weight:600!important}
-.dsm-phone-actions{display:flex;justify-content:center;gap:20px;margin-top:12px}
-.dsm-phone-actions button{min-height:36px;border:0;padding:4px;background:transparent;color:var(--bt-ink-2,#555);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.dsm-phone-manual{margin-top:12px;text-align:left;font-size:12px;color:var(--bt-ink-2,#555)}
-.dsm-phone-manual summary{cursor:pointer;text-align:center}
-.dsm-phone-manual textarea{display:block;width:100%;min-height:88px;margin-top:8px;border:1px solid var(--bt-line-2,#bbb);border-radius:8px;background:var(--bt-card,#fff);color:inherit;padding:8px;overflow-wrap:anywhere;resize:vertical}
-.dsm-phone-help{margin:18px 0;color:var(--bt-ink-2,#555)}
-.dsm-phone-config{margin-top:18px;padding-top:16px;border-top:1px solid var(--bt-line,#ddd)}
-.dsm-phone-config label{display:block;font-weight:600}
-.dsm-phone-config input{width:100%;min-height:44px;padding:9px 11px;margin-top:8px;border:1px solid var(--bt-line-2,#bbb);border-radius:10px;color:inherit;background:var(--bt-card,#fff)}
-.dsm-phone-config p{font-size:12px;color:var(--bt-ink-2,#555)}
-.dsm-phone-config button:disabled{opacity:.5;cursor:default}
-.dsm-phone-error{margin:14px 0 0;color:var(--bt-danger,#c22)}
-.dsm-phone-dialog footer{margin-top:22px;padding-top:14px;border-top:1px solid var(--bt-line,#ddd);font-size:12px;color:var(--bt-ink-2,#555)}
-.dsm-phone-dialog footer p{margin:4px 0}
-.dsm-phone-dialog :is(button,input,textarea,summary):focus-visible,.dsm-menu-phone:focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}
-@media(max-width:520px){.dsm-phone-backdrop{padding:12px}.dsm-phone-dialog{padding:20px;max-height:calc(100dvh - 24px)}.dsm-phone-dialog input{font-size:16px}}
-`;
+var phone_default = '.dsm-phone-panel{font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:var(--bt-ink,#171717)}.dsm-phone-panel *{box-sizing:border-box}.dsm-phone-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--bt-ink-2,#666);min-height:32px}.dsm-phone-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}.dsm-phone-status[data-ready=true]>span{background:var(--bt-green,#00865b)}.dsm-phone-ready{text-align:center}.dsm-phone-qr{display:block;width:204px;max-width:100%;height:auto;margin:12px auto 10px;border-radius:8px;background:#fff}.dsm-phone-scan{margin:10px 0 4px;font-size:14px}.dsm-phone-address{margin:0 0 18px;font-size:12px;color:var(--bt-ink-2,#666);overflow-wrap:anywhere}.dsm-phone-panel button,.dsm-phone-panel input,.dsm-phone-panel textarea{font:inherit}.dsm-phone-primary,.dsm-phone-config button{min-height:40px;border:0;border-radius:10px;padding:9px 16px;background:var(--bt-ink,#171717);color:var(--bt-main,#fff);cursor:pointer}.dsm-phone-primary{width:100%;font-size:14px!important;font-weight:550}.dsm-phone-actions{display:flex;justify-content:center;gap:20px;margin-top:8px}.dsm-phone-actions button{min-height:36px;border:0;padding:4px;background:transparent;color:var(--bt-ink-2,#666);font-size:12px;cursor:pointer}.dsm-phone-actions button:hover{text-decoration:underline;text-underline-offset:3px}.dsm-phone-manual{margin-top:8px;text-align:left;font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-manual summary{cursor:pointer;text-align:center;min-height:32px;padding:6px 0}.dsm-phone-manual textarea{display:block;width:100%;min-height:88px;margin-top:8px;border:1px solid var(--bt-line,#ddd);border-radius:8px;background:var(--bt-card,#fff);color:inherit;padding:8px;overflow-wrap:anywhere;resize:vertical}.dsm-phone-help{margin:18px 0;color:var(--bt-ink-2,#666)}.dsm-phone-config{margin-top:16px;padding-top:16px;border-top:1px solid var(--bt-line,#ddd)}.dsm-phone-config label{display:block;font-weight:550;font-size:13px}.dsm-phone-config input{width:100%;min-height:44px;padding:9px 11px;margin-top:8px;border:1px solid var(--bt-line,#ddd);border-radius:10px;color:inherit;background:var(--bt-card,#fff)}.dsm-phone-config p{font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-config button:disabled{opacity:.5;cursor:default}.dsm-phone-error{margin:14px 0 0;color:var(--bt-danger,#b42318)}.dsm-phone-note{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--bt-line,#ddd);font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-panel :is(button,input,textarea,summary):focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}@media(max-width:540px){.dsm-phone-panel input{font-size:16px}.dsm-phone-panel button{min-height:44px}}\n';
 
 // src/mobile.css
 var mobile_default = `.dsm-chrome,.dsm-return{display:none}
@@ -2594,7 +2730,7 @@ body[data-dsm-enabled] .dsm-chrome{display:block;font-family:-apple-system,Blink
 `;
 
 // ../../ds-bot-upstream/ds-bot/src/client/mark.js
-var import_react2 = require("react");
+var import_react3 = require("react");
 
 // ../../ds-bot-upstream/ds-bot/src/client/inks.js
 var INKS = {
@@ -2700,8 +2836,8 @@ function bodyOf(def, paint, flat = false) {
     return "";
   }
 }
-var eyeMarkup = ([cx, cy, w, h4, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><rect class="bt-eye" x="${-w / 2}" y="${-h4 / 2}" width="${w}" height="${h4}" rx="${w / 2}"/></g>`;
-var happyEyeMarkup = ([cx, cy, w, h4, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><path class="bt-eye-happy" opacity="0" d="M${-w * 0.62} ${h4 * 0.14}Q0 ${-h4 * 0.42} ${w * 0.62} ${h4 * 0.14}" fill="none" stroke="#000" stroke-width="${w * 0.5}" stroke-linecap="round"/></g>`;
+var eyeMarkup = ([cx, cy, w, h5, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><rect class="bt-eye" x="${-w / 2}" y="${-h5 / 2}" width="${w}" height="${h5}" rx="${w / 2}"/></g>`;
+var happyEyeMarkup = ([cx, cy, w, h5, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><path class="bt-eye-happy" opacity="0" d="M${-w * 0.62} ${h5 * 0.14}Q0 ${-h5 * 0.42} ${w * 0.62} ${h5 * 0.14}" fill="none" stroke="#000" stroke-width="${w * 0.5}" stroke-linecap="round"/></g>`;
 var maskBox = (size) => `maskUnits="userSpaceOnUse" x="${-size}" y="${-size}" width="${size * 3}" height="${size * 3}"`;
 var holes = (def, eyes) => `<rect x="${-def.size}" y="${-def.size}" width="${def.size * 3}" height="${def.size * 3}" fill="#fff"/>${eyes}`;
 var MASK_ID = "%MASK%";
@@ -3643,7 +3779,7 @@ function t(key, params) {
 var STATES = ["idle", "thinking", "searching", "working", "sending", "orbit", "waiting", "alert", "done"];
 var botState = (running, activity, alert) => running ? STATES.includes(activity) && activity !== "waiting" ? activity : "working" : alert ? "alert" : activity === "waiting" ? "waiting" : "idle";
 function useGaze(ref, enabled) {
-  (0, import_react2.useEffect)(() => {
+  (0, import_react3.useEffect)(() => {
     if (!enabled) return void 0;
     let frame = 0;
     let point = null;
@@ -3677,10 +3813,10 @@ function useGaze(ref, enabled) {
 var FIDGETS = ["hop", "sway", "stretch", "look"];
 function BotMark({ bot, look: given, size = 36, state = "idle", live = false, gaze = false, pokeable = false, label }) {
   const look = given ?? lookOf(bot);
-  const ref = (0, import_react2.useRef)(null);
-  const maskId = (0, import_react2.useRef)("");
+  const ref = (0, import_react3.useRef)(null);
+  const maskId = (0, import_react3.useRef)("");
   if (maskId.current === "") maskId.current = `dsm-mark-${nextMarkSerial()}`;
-  const [poked, setPoked] = (0, import_react2.useState)(false);
+  const [poked, setPoked] = (0, import_react3.useState)(false);
   useGaze(ref, gaze);
   const common = {
     ref,
@@ -3700,28 +3836,28 @@ function BotMark({ bot, look: given, size = 36, state = "idle", live = false, ga
       if (/^bt-poke/.test(event.animationName)) setPoked(false);
     } : void 0
   };
-  if (look.image) return (0, import_react2.createElement)("span", common, (0, import_react2.createElement)("img", { className: "bt-mark-img", src: look.image, alt: "", draggable: false }));
+  if (look.image) return (0, import_react3.createElement)("span", common, (0, import_react3.createElement)("img", { className: "bt-mark-img", src: look.image, alt: "", draggable: false }));
   const box = shapeOf(look.shape).size;
-  return (0, import_react2.createElement)("span", common, (0, import_react2.createElement)("svg", { viewBox: `0 0 ${box} ${box}`, dangerouslySetInnerHTML: { __html: characterMarkup(look.shape, look.color).replaceAll(MASK_ID, maskId.current) } }));
+  return (0, import_react3.createElement)("span", common, (0, import_react3.createElement)("svg", { viewBox: `0 0 ${box} ${box}`, dangerouslySetInnerHTML: { __html: characterMarkup(look.shape, look.color).replaceAll(MASK_ID, maskId.current) } }));
 }
 function StarIcon({ size = 8 }) {
-  return (0, import_react2.createElement)(
+  return (0, import_react3.createElement)(
     "svg",
     { width: size, height: size, viewBox: "0 0 10 10", "aria-hidden": true },
-    (0, import_react2.createElement)("path", { d: "M5 .6l1.3 2.8 3 .3-2.3 2 .7 3L5 7.2 2.3 8.7l.7-3L.7 3.7l3-.3z", fill: "#fff" })
+    (0, import_react3.createElement)("path", { d: "M5 .6l1.3 2.8 3 .3-2.3 2 .7 3L5 7.2 2.3 8.7l.7-3L.7 3.7l3-.3z", fill: "#fff" })
   );
 }
 function MainStar() {
-  return (0, import_react2.createElement)(
+  return (0, import_react3.createElement)(
     "svg",
     { viewBox: "0 0 20 20", "aria-hidden": true },
-    (0, import_react2.createElement)("path", { d: "M10 2.4l2.29 5.04 5.51.63-4.09 3.74 1.11 5.42L10 14.5l-4.82 2.73 1.11-5.42L2.2 8.07l5.51-.63z" })
+    (0, import_react3.createElement)("path", { d: "M10 2.4l2.29 5.04 5.51.63-4.09 3.74 1.11 5.42L10 14.5l-4.82 2.73 1.11-5.42L2.2 8.07l5.51-.63z" })
   );
 }
 function useSettled(state) {
-  const prev = (0, import_react2.useRef)(state);
-  const [settled, setSettled] = (0, import_react2.useState)(false);
-  (0, import_react2.useEffect)(() => {
+  const prev = (0, import_react3.useRef)(state);
+  const [settled, setSettled] = (0, import_react3.useState)(false);
+  (0, import_react3.useEffect)(() => {
     const was = prev.current;
     prev.current = state;
     if (state !== "idle") {
@@ -3737,16 +3873,16 @@ function useSettled(state) {
 }
 function BotAvatar({ bot, size, state = "idle", main, admin, badge = true, live = true, gaze = false, pokeable = false }) {
   const settled = useSettled(state);
-  if (bot === void 0) return (0, import_react2.createElement)(BotMark, { size });
+  if (bot === void 0) return (0, import_react3.createElement)(BotMark, { size });
   const badgeKind = !badge ? null : state === "alert" ? "alert" : state !== "idle" && state !== "waiting" ? "working" : admin ? "admin" : main ? "main" : null;
-  return (0, import_react2.createElement)(
+  return (0, import_react3.createElement)(
     "span",
     { className: "bt-mark", style: { width: size, height: size, "--bt-size": `${size}px` } },
-    (0, import_react2.createElement)(BotMark, { bot, size, state: settled ? "done" : state, live, gaze, pokeable }),
-    badgeKind === "working" ? (0, import_react2.createElement)("span", { className: "bt-badge bt-badge-working", "aria-label": t("Working"), role: "img" }) : null,
-    badgeKind === "alert" ? (0, import_react2.createElement)("span", { className: "bt-badge bt-badge-alert", "aria-label": t("Waiting for your answer"), role: "img" }, "?") : null,
-    badgeKind === "admin" ? (0, import_react2.createElement)("span", { className: "bt-badge bt-badge-admin", "aria-label": t("Admin"), role: "img" }, (0, import_react2.createElement)(StarIcon)) : null,
-    badgeKind === "main" ? (0, import_react2.createElement)("span", { className: "bt-badge bt-badge-main", "aria-label": t("Main Bot"), role: "img" }, (0, import_react2.createElement)(MainStar)) : null
+    (0, import_react3.createElement)(BotMark, { bot, size, state: settled ? "done" : state, live, gaze, pokeable }),
+    badgeKind === "working" ? (0, import_react3.createElement)("span", { className: "bt-badge bt-badge-working", "aria-label": t("Working"), role: "img" }) : null,
+    badgeKind === "alert" ? (0, import_react3.createElement)("span", { className: "bt-badge bt-badge-alert", "aria-label": t("Waiting for your answer"), role: "img" }, "?") : null,
+    badgeKind === "admin" ? (0, import_react3.createElement)("span", { className: "bt-badge bt-badge-admin", "aria-label": t("Admin"), role: "img" }, (0, import_react3.createElement)(StarIcon)) : null,
+    badgeKind === "main" ? (0, import_react3.createElement)("span", { className: "bt-badge bt-badge-main", "aria-label": t("Main Bot"), role: "img" }, (0, import_react3.createElement)(MainStar)) : null
   );
 }
 function clusterSeats(count, frame) {
@@ -3763,21 +3899,21 @@ function clusterSeats(count, frame) {
 function RoomAvatar({ room, roster, size = 36 }) {
   const members = room.members.map((id) => roster.byId[id]).filter(Boolean);
   const people = members.length === 1 ? [members[0], null] : members;
-  const seat = (bot, seatSize, key) => bot ? (0, import_react2.createElement)(BotMark, { key, bot, size: seatSize }) : (0, import_react2.createElement)("span", { key, className: "bt-cluster-you", style: { width: seatSize * 0.92, height: seatSize * 0.92, margin: seatSize * 0.04 } });
-  if (people.length === 0) return (0, import_react2.createElement)(BotMark, { size });
+  const seat = (bot, seatSize, key) => bot ? (0, import_react3.createElement)(BotMark, { key, bot, size: seatSize }) : (0, import_react3.createElement)("span", { key, className: "bt-cluster-you", style: { width: seatSize * 0.92, height: seatSize * 0.92, margin: seatSize * 0.04 } });
+  if (people.length === 0) return (0, import_react3.createElement)(BotMark, { size });
   if (size <= 20 && people.length > 1) {
-    return (0, import_react2.createElement)(
+    return (0, import_react3.createElement)(
       "span",
       { className: "bt-stack", style: { "--bt-stack-size": `${size}px` } },
       people.slice(0, 3).map((bot, index) => seat(bot, size, bot?.id ?? `you-${index}`)),
-      people.length > 3 ? (0, import_react2.createElement)("span", { className: "bt-stack-more" }, `+${people.length - 3}`) : null
+      people.length > 3 ? (0, import_react3.createElement)("span", { className: "bt-stack-more" }, `+${people.length - 3}`) : null
     );
   }
   const seats = clusterSeats(Math.min(people.length, 4), size);
   const overflow = people.length > 4 ? people.length - 3 : 0;
   const gap = size / 14;
   const rings = seats.map(([x, y, s]) => ({ cx: x + s / 2, cy: y + s / 2, r: s * 0.48 + gap }));
-  return (0, import_react2.createElement)(
+  return (0, import_react3.createElement)(
     "span",
     { className: "bt-cluster", style: { width: size, height: size } },
     seats.map(([x, y, s], index) => {
@@ -3785,10 +3921,10 @@ function RoomAvatar({ room, roster, size = 36 }) {
       const style = { left: x, top: y, width: s, height: s };
       if (holes2.length > 0) Object.assign(style, { WebkitMaskImage: holes2.join(","), maskImage: holes2.join(","), WebkitMaskComposite: "source-in", maskComposite: "intersect" });
       if (overflow > 0 && index === 3) {
-        return (0, import_react2.createElement)("span", { key: "more", className: "bt-cluster-more", style: { ...style, width: s * 0.92, height: s * 0.92, margin: s * 0.04, fontSize: Math.max(8, Math.round(s * 0.36)) } }, `+${overflow}`);
+        return (0, import_react3.createElement)("span", { key: "more", className: "bt-cluster-more", style: { ...style, width: s * 0.92, height: s * 0.92, margin: s * 0.04, fontSize: Math.max(8, Math.round(s * 0.36)) } }, `+${overflow}`);
       }
       const bot = people[index];
-      return (0, import_react2.createElement)("span", { key: bot?.id ?? "you", style }, seat(bot, s));
+      return (0, import_react3.createElement)("span", { key: bot?.id ?? "you", style }, seat(bot, s));
     })
   );
 }
@@ -3798,28 +3934,28 @@ var inject = ["slots", "uiWorkspace", "sessions", "connection", "configForms"];
 var connectionLabel = (state) => state === "connected" ? "已连接" : state === "disconnected" ? "已离线" : "正在连接";
 var iconPaths = { chat: ["M5 4h14v11H9l-4 4V4Z"], team: ["M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M16 4a4 4 0 0 1 0 8", "M22 20v-2a4 4 0 0 0-3-3.87", "M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"], settings: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8", "M12 2v2", "M12 20v2", "M2 12h2", "M20 12h2", "m5 5 1.5 1.5", "m17.5 17.5 1.5 1.5", "m5 19 1.5-1.5", "m17.5 6.5 1.5-1.5"], connection: ["M3 9a15 15 0 0 1 18 0", "M6 12a10 10 0 0 1 12 0", "M9 15a5 5 0 0 1 6 0", "M12 19h.01"], back: ["m14 5-7 7 7 7"], search: ["M21 21l-5-5", "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0"] };
 function Icon({ name }) {
-  return (0, import_react3.createElement)("svg", { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...(iconPaths[name] || []).map((d, i) => (0, import_react3.createElement)("path", { d, key: i })));
+  return (0, import_react4.createElement)("svg", { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...(iconPaths[name] || []).map((d, i) => (0, import_react4.createElement)("path", { d, key: i })));
 }
 function Mascot({ item, items, size = 48 }) {
-  if (item.kind === "room") return (0, import_react3.createElement)(RoomAvatar, { room: item, roster: { byId: Object.fromEntries(items.filter((x) => x.kind === "bot").map((x) => [x.id, x])) }, size });
-  return (0, import_react3.createElement)(BotAvatar, { bot: item, size, state: botState(item.running, item.activity, item.alert), main: item.isMain, live: true, gaze: size >= 60 });
+  if (item.kind === "room") return (0, import_react4.createElement)(RoomAvatar, { room: item, roster: { byId: Object.fromEntries(items.filter((x) => x.kind === "bot").map((x) => [x.id, x])) }, size });
+  return (0, import_react4.createElement)(BotAvatar, { bot: item, size, state: botState(item.running, item.activity, item.alert), main: item.isMain, live: true, gaze: size >= 60 });
 }
-function MobileSettings({ preference, phone, view }) {
-  const enabled = (0, import_react3.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
+function MobileSettings({ preference, access, view }) {
+  const enabled = (0, import_react4.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
   if (view === "summary") return "手机会话界面与扫码登录入口。";
-  return (0, import_react3.createElement)(
+  return (0, import_react4.createElement)(
     "div",
     null,
-    (0, import_react3.createElement)("label", null, (0, import_react3.createElement)("input", { type: "checkbox", "aria-label": "启用手机布局", checked: enabled, onChange: (event) => preference.set(event.target.checked) }), " 启用手机布局"),
-    (0, import_react3.createElement)("p", null, "界面偏好仅保存在当前浏览器。"),
-    (0, import_react3.createElement)("button", { type: "button", onClick: () => phone.open() }, "手机访问")
+    (0, import_react4.createElement)("label", null, (0, import_react4.createElement)("input", { type: "checkbox", "aria-label": "启用手机布局", checked: enabled, onChange: (event) => preference.set(event.target.checked) }), " 启用手机布局"),
+    (0, import_react4.createElement)("p", null, "界面偏好仅保存在当前浏览器。"),
+    (0, import_react4.createElement)("button", { type: "button", onClick: access.open }, "手机访问")
   );
 }
 function MobileChrome({ controller, preference }) {
-  const state = (0, import_react3.useSyncExternalStore)(controller.subscribe, controller.snapshot, controller.snapshot);
-  const enabled = (0, import_react3.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
+  const state = (0, import_react4.useSyncExternalStore)(controller.subscribe, controller.snapshot, controller.snapshot);
+  const enabled = (0, import_react4.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
   const setEnabled = (value) => preference.set(value);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (enabled) {
       document.body.dataset.dsmEnabled = "true";
       document.body.dataset.dsmPage = state.page;
@@ -3832,53 +3968,53 @@ function MobileChrome({ controller, preference }) {
       delete document.body.dataset.dsmPage;
     };
   }, [enabled, state.page]);
-  if (!enabled) return (0, import_react3.createElement)("button", { className: "dsm-return", onClick: () => setEnabled(true) }, "手机布局");
+  if (!enabled) return (0, import_react4.createElement)("button", { className: "dsm-return", onClick: () => setEnabled(true) }, "手机布局");
   const isChat = state.page === "chat", status = connectionLabel(state.connected);
   const results = state.items.filter((item) => (state.tab !== "team" || item.kind === "bot") && item.name.toLowerCase().includes(state.query.toLowerCase()));
   const titles = { chats: "DS Bot", team: "团队", connection: "连接" };
-  const row = (item) => (0, import_react3.createElement)(
+  const row = (item) => (0, import_react4.createElement)(
     "button",
     { key: item.id, className: "dsm-row", onClick: () => controller.open(item.id) },
-    (0, import_react3.createElement)("span", { className: "dsm-avatar", "data-kind": item.kind, "data-bot-id": item.id }, (0, import_react3.createElement)(Mascot, { item, items: state.items })),
-    (0, import_react3.createElement)("span", { className: "dsm-row-copy" }, (0, import_react3.createElement)("strong", null, item.name, item.isMain ? (0, import_react3.createElement)("span", { className: "dsm-main-badge" }, "主 Bot") : null), (0, import_react3.createElement)("small", null, item.preview || item.role || (item.kind === "room" ? "团队群聊" : "开始或继续对话"))),
-    (0, import_react3.createElement)("span", { className: "dsm-row-status", "data-running": item.running || void 0, "aria-label": item.running ? "正在工作" : void 0 }, item.running ? (0, import_react3.createElement)("span", null) : null)
+    (0, import_react4.createElement)("span", { className: "dsm-avatar", "data-kind": item.kind, "data-bot-id": item.id }, (0, import_react4.createElement)(Mascot, { item, items: state.items })),
+    (0, import_react4.createElement)("span", { className: "dsm-row-copy" }, (0, import_react4.createElement)("strong", null, item.name, item.isMain ? (0, import_react4.createElement)("span", { className: "dsm-main-badge" }, "主 Bot") : null), (0, import_react4.createElement)("small", null, item.preview || item.role || (item.kind === "room" ? "团队群聊" : "开始或继续对话"))),
+    (0, import_react4.createElement)("span", { className: "dsm-row-status", "data-running": item.running || void 0, "aria-label": item.running ? "正在工作" : void 0 }, item.running ? (0, import_react4.createElement)("span", null) : null)
   );
-  return (0, import_react3.createElement)(
+  return (0, import_react4.createElement)(
     "div",
     { className: "dsm-chrome" },
-    (0, import_react3.createElement)(
+    (0, import_react4.createElement)(
       "header",
       { className: "dsm-bar" },
-      isChat ? (0, import_react3.createElement)("button", { onClick: () => controller.home(), "aria-label": "返回会话列表" }, (0, import_react3.createElement)(Icon, { name: "back" })) : (0, import_react3.createElement)("button", { className: "dsm-profile", onClick: () => controller.selectTab("connection"), "aria-label": "查看连接与界面" }, (0, import_react3.createElement)(Icon, { name: "settings" })),
-      (0, import_react3.createElement)("div", { className: "dsm-current" }, isChat ? (0, import_react3.createElement)("span", { className: "dsm-title-mascot" }, state.items.find((x) => x.id === state.active?.id) ? (0, import_react3.createElement)(Mascot, { item: state.items.find((x) => x.id === state.active.id), items: state.items, size: 28 }) : null, state.active?.name || "当前会话") : titles[state.tab], (0, import_react3.createElement)("span", { "data-connected": state.connected, role: "status" }, status)),
-      isChat ? (0, import_react3.createElement)("span", { className: "dsm-header-spacer", "aria-hidden": true }) : (0, import_react3.createElement)("button", { onClick: () => {
+      isChat ? (0, import_react4.createElement)("button", { onClick: () => controller.home(), "aria-label": "返回会话列表" }, (0, import_react4.createElement)(Icon, { name: "back" })) : (0, import_react4.createElement)("button", { className: "dsm-profile", onClick: () => controller.selectTab("connection"), "aria-label": "查看连接与界面" }, (0, import_react4.createElement)(Icon, { name: "settings" })),
+      (0, import_react4.createElement)("div", { className: "dsm-current" }, isChat ? (0, import_react4.createElement)("span", { className: "dsm-title-mascot" }, state.items.find((x) => x.id === state.active?.id) ? (0, import_react4.createElement)(Mascot, { item: state.items.find((x) => x.id === state.active.id), items: state.items, size: 28 }) : null, state.active?.name || "当前会话") : titles[state.tab], (0, import_react4.createElement)("span", { "data-connected": state.connected, role: "status" }, status)),
+      isChat ? (0, import_react4.createElement)("span", { className: "dsm-header-spacer", "aria-hidden": true }) : (0, import_react4.createElement)("button", { onClick: () => {
         if (state.tab === "connection") controller.selectTab("chats");
         requestAnimationFrame(() => document.getElementById("dsm-search")?.focus());
-      }, "aria-label": "搜索会话" }, (0, import_react3.createElement)(Icon, { name: "search" }))
+      }, "aria-label": "搜索会话" }, (0, import_react4.createElement)(Icon, { name: "search" }))
     ),
-    state.error ? (0, import_react3.createElement)("div", { className: "dsm-error", role: "status" }, state.error, (0, import_react3.createElement)("button", { onClick: controller.restore }, "重试")) : null,
-    !isChat ? (0, import_react3.createElement)(
+    state.error ? (0, import_react4.createElement)("div", { className: "dsm-error", role: "status" }, state.error, (0, import_react4.createElement)("button", { onClick: controller.restore }, "重试")) : null,
+    !isChat ? (0, import_react4.createElement)(
       "section",
       { className: "dsm-home", "aria-label": state.tab === "connection" ? "手机连接设置" : state.tab === "team" ? "Bot团队" : "手机会话列表" },
-      state.tab === "connection" ? (0, import_react3.createElement)(
+      state.tab === "connection" ? (0, import_react4.createElement)(
         "div",
         { className: "dsm-settings" },
-        (0, import_react3.createElement)("div", { className: "dsm-connection-symbol", "data-connected": state.connected }, (0, import_react3.createElement)(Icon, { name: "connection" })),
-        (0, import_react3.createElement)("h1", null, status),
-        (0, import_react3.createElement)("p", { className: "dsm-lead" }, "电脑保持运行时，随时接着聊。"),
-        (0, import_react3.createElement)("dl", { className: "dsm-details" }, (0, import_react3.createElement)("div", null, (0, import_react3.createElement)("dt", null, "电脑连接"), (0, import_react3.createElement)("dd", null, status)), (0, import_react3.createElement)("div", null, (0, import_react3.createElement)("dt", null, "最近同步"), (0, import_react3.createElement)("dd", null, state.lastSync ? new Date(state.lastSync).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "尚未同步"))),
-        (0, import_react3.createElement)("div", { className: "dsm-setting-actions" }, (0, import_react3.createElement)("button", { onClick: controller.restore, disabled: state.loading }, state.loading ? "正在同步…" : "同步消息"), (0, import_react3.createElement)("button", { onClick: () => controller.reconnect() }, "重新连接")),
-        (0, import_react3.createElement)("p", { className: "dsm-setting-note" }, "电脑休眠或断网时，连接恢复后再查看最新进度。")
-      ) : (0, import_react3.createElement)(
+        (0, import_react4.createElement)("div", { className: "dsm-connection-symbol", "data-connected": state.connected }, (0, import_react4.createElement)(Icon, { name: "connection" })),
+        (0, import_react4.createElement)("h1", null, status),
+        (0, import_react4.createElement)("p", { className: "dsm-lead" }, "电脑保持运行时，随时接着聊。"),
+        (0, import_react4.createElement)("dl", { className: "dsm-details" }, (0, import_react4.createElement)("div", null, (0, import_react4.createElement)("dt", null, "电脑连接"), (0, import_react4.createElement)("dd", null, status)), (0, import_react4.createElement)("div", null, (0, import_react4.createElement)("dt", null, "最近同步"), (0, import_react4.createElement)("dd", null, state.lastSync ? new Date(state.lastSync).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "尚未同步"))),
+        (0, import_react4.createElement)("div", { className: "dsm-setting-actions" }, (0, import_react4.createElement)("button", { onClick: controller.restore, disabled: state.loading }, state.loading ? "正在同步…" : "同步消息"), (0, import_react4.createElement)("button", { onClick: () => controller.reconnect() }, "重新连接")),
+        (0, import_react4.createElement)("p", { className: "dsm-setting-note" }, "电脑休眠或断网时，连接恢复后再查看最新进度。")
+      ) : (0, import_react4.createElement)(
         "div",
         null,
-        (0, import_react3.createElement)("label", { className: "dsm-search" }, (0, import_react3.createElement)("span", { className: "dsm-sr" }, "搜索会话"), (0, import_react3.createElement)(Icon, { name: "search" }), (0, import_react3.createElement)("input", { id: "dsm-search", type: "search", value: state.query, onChange: (event) => controller.search(event.target.value), placeholder: state.tab === "team" ? "搜索你的 Bot" : "搜索会话", autoComplete: "off" })),
-        state.tab === "team" ? (0, import_react3.createElement)("div", { className: "dsm-section-heading" }, (0, import_react3.createElement)("h1", null, "你的团队"), (0, import_react3.createElement)("span", null, results.length + " 位 Bot")) : null,
-        (0, import_react3.createElement)("div", { className: "dsm-list" }, ...results.map(row)),
-        !results.length ? (0, import_react3.createElement)("p", { className: "dsm-empty", role: "status" }, state.loading ? "正在同步团队…" : state.query ? "没有匹配的会话" : "团队准备中，请在电脑端完成首次设置。") : null
+        (0, import_react4.createElement)("label", { className: "dsm-search" }, (0, import_react4.createElement)("span", { className: "dsm-sr" }, "搜索会话"), (0, import_react4.createElement)(Icon, { name: "search" }), (0, import_react4.createElement)("input", { id: "dsm-search", type: "search", value: state.query, onChange: (event) => controller.search(event.target.value), placeholder: state.tab === "team" ? "搜索你的 Bot" : "搜索会话", autoComplete: "off" })),
+        state.tab === "team" ? (0, import_react4.createElement)("div", { className: "dsm-section-heading" }, (0, import_react4.createElement)("h1", null, "你的团队"), (0, import_react4.createElement)("span", null, results.length + " 位 Bot")) : null,
+        (0, import_react4.createElement)("div", { className: "dsm-list" }, ...results.map(row)),
+        !results.length ? (0, import_react4.createElement)("p", { className: "dsm-empty", role: "status" }, state.loading ? "正在同步团队…" : state.query ? "没有匹配的会话" : "团队准备中，请在电脑端完成首次设置。") : null
       )
     ) : null,
-    !isChat ? (0, import_react3.createElement)("nav", { className: "dsm-tabs", "aria-label": "手机主导航" }, ...Object.entries({ chats: "聊天", team: "团队", connection: "连接" }).map(([tab, label]) => (0, import_react3.createElement)("button", { key: tab, onClick: () => controller.selectTab(tab), "aria-current": state.tab === tab ? "page" : void 0 }, (0, import_react3.createElement)(Icon, { name: tab === "chats" ? "chat" : tab }), (0, import_react3.createElement)("span", null, label)))) : null
+    !isChat ? (0, import_react4.createElement)("nav", { className: "dsm-tabs", "aria-label": "手机主导航" }, ...Object.entries({ chats: "聊天", team: "团队", connection: "连接" }).map(([tab, label]) => (0, import_react4.createElement)("button", { key: tab, onClick: () => controller.selectTab(tab), "aria-current": state.tab === tab ? "page" : void 0 }, (0, import_react4.createElement)(Icon, { name: tab === "chats" ? "chat" : tab }), (0, import_react4.createElement)("span", null, label)))) : null
   );
 }
 function apply(ctx) {
@@ -3891,7 +4027,11 @@ function apply(ctx) {
   const api = createMobileClient({ appRoot: new URL("./", location.href).href });
   const controller = createMobileNavigation({ api, workspace: ctx.uiWorkspace, sessions: ctx.sessions, connection: ctx.connection, history: window.history });
   const phone = createPhoneController({ appRoot: new URL("./", location.href).href, form: ctx.configForms.get("mobile-layout-local") });
-  ctx.effect(() => () => phone.dispose());
+  const access = registerMobileAccessProvider({ id: "web", label: "Web", order: 10, render: () => (0, import_react4.createElement)(WebAccessPanel, { phone }) });
+  ctx.effect(() => () => {
+    access.dispose();
+    phone.dispose();
+  });
   ctx.effect(() => {
     const style = document.createElement("style");
     style.dataset.mobileLayout = "local";
@@ -3998,8 +4138,8 @@ function apply(ctx) {
     };
   });
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference }) }, MobileChrome));
-  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-phone-access", order: 41, inject: () => ({ phone }) }, PhoneAccess));
-  ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "ds-bot-mobile-web", inject: () => ({ preference, phone }) }, MobileSettings));
+  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-phone-access", order: 41, inject: () => ({ access }) }, MobileAccessHost));
+  ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "ds-bot-mobile-web", inject: () => ({ preference, access }) }, MobileSettings));
 }
 
 return Object.defineProperty({...module.exports},Symbol.toStringTag,{value:'Module'});

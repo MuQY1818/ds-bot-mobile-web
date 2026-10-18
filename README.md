@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="构建与检查"></a>
-  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-0.3.0-blue" alt="版本 0.3.0"></a>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-0.4.0-blue" alt="版本 0.4.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 许可"></a>
 </p>
 
@@ -14,7 +14,7 @@
 
 DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 的移动界面插件。它在现有会话上提供适合手机的导航、团队视图和扫码登录入口，共用电脑上的 Bot、群聊与消息历史。
 
-> **预览版本**：当前发布为 `0.3.0`，目标组合为 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。插件安装在电脑上，手机使用浏览器访问。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
+> **预览版本**：当前发布为 `0.4.0`，目标组合为 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。插件安装在电脑上，手机使用浏览器访问。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 
@@ -37,7 +37,7 @@ DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/de
 
 - **移动会话导航**：会话列表、团队、搜索、连接状态与返回导航。
 - **复用完整聊天界面**：沿用 DS Bot 的消息渲染和输入框，保留流式回复、群聊与交互卡片。
-- **电脑扫码入口**：从账户菜单打开“手机访问”，通过宿主认证链接登录手机浏览器。
+- **统一手机访问**：从账户菜单打开“手机访问 → Web”；与 App 配套插件共用 Web / App 标签弹窗，各包仍可独立启停。
 - **保留 Bot 身份**：显示精灵头像、工作状态及群成员组合。
 - **统一消息界面**：紧凑列表、居中身份、黑色用户气泡与浅灰 Bot 气泡，宽屏保留桌面布局。
 - **快速返回会话**：保留最近 3 段会话的宿主内存引用，5 分钟内返回复用历史；不另存聊天转录。
@@ -59,9 +59,9 @@ Web 插件已可使用；近期包名迁移导致的入口配置失效已修复�
 
 ### 安装与登录
 
-1. 在电脑上从 [v0.3.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0) 下载 `ds-bot-mobile-web-0.3.0.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
+1. 在电脑上从 [v0.4.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.0) 下载 `ds-bot-mobile-web-0.4.0.tgz` 和同次发布的 `SHA256SUMS`，按[安装指南](docs/installation.md#2-下载发布包并核对-sha-256)核对校验值。
 2. 在现有 DSH 的插件管理器中安装本地 `.tgz`，确认包名和版本，启用后刷新页面；如宿主要求重启，按提示操作。
-3. 在电脑端 DS Bot 账户菜单选择 **手机访问**。入口未配置时，填写已准备好的 HTTPS 地址。
+3. 在电脑端 DS Bot 账户菜单选择 **手机访问 → Web**。入口未配置时，填写已准备好的 HTTPS 地址。
 4. 手机接入对应网络，扫描二维码，并在浏览器中完成登录。
 
 尚未准备网络入口时，请先阅读[远程访问](docs/remote-access.md)。插件复用 DSH 认证；HTTPS、代理及域名信任由宿主环境配置。

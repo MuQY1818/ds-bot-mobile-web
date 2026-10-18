@@ -2,7 +2,7 @@
 
 本插件安装在运行 DSH 和 DS Bot 的电脑上，为现有 Web 界面增加手机布局。手机通过浏览器访问这台电脑，无需在手机上安装 `.tgz` 文件。原有 Bot、群聊和会话继续由 DS Bot 管理。
 
-本文对应 v0.3.0。版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
+本文对应 v0.4.0。版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.0) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
 
 ## 已有DSH用户
 
@@ -16,9 +16,9 @@
 
 ### 2. 下载发布包并核对 SHA-256
 
-在电脑上打开 [v0.3.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.3.0)，从同一次 Release 的附件下载：
+在电脑上打开 [v0.4.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.0)，从同一次 Release 的附件下载：
 
-- `ds-bot-mobile-web-0.3.0.tgz`
+- `ds-bot-mobile-web-0.4.0.tgz`
 - `SHA256SUMS`
 
 将两份文件放在同一目录。后续版本使用对应文件名，不要混用不同版本的安装包和校验文件。GitHub 自动生成的源码压缩包不能替代这里的插件 `.tgz`。
@@ -42,7 +42,7 @@ macOS 和 Linux 应显示所需 `.tgz` 校验通过。若清单还列出其他�
 Windows：在 PowerShell 进入下载目录后运行：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\ds-bot-mobile-web-0.3.0.tgz
+Get-FileHash -Algorithm SHA256 .\ds-bot-mobile-web-0.4.0.tgz
 Get-Content .\SHA256SUMS
 ```
 

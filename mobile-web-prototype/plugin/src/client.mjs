@@ -3,7 +3,9 @@ import {createMobileClient} from '../../../mobile-host-adapter/client.mjs'
 import {createMobileNavigation} from './controller.mjs'
 import {createLayoutPreference} from './preference.mjs'
 import {createPhoneController} from './phone-controller.mjs'
-import {PhoneAccess} from './phone-access.mjs'
+import {WebAccessPanel} from './phone-access.mjs'
+import {registerMobileAccessProvider} from './mobile-access-registry.mjs'
+import {MobileAccessHost} from './mobile-access-shell.mjs'
 import phoneCss from './phone.css'
 import css from './mobile.css'
 import {BotAvatar,RoomAvatar,botState} from '../../../ds-bot-upstream/ds-bot/src/client/mark.js'
@@ -16,13 +18,13 @@ function Mascot({item,items,size=48}){
   if(item.kind==='room')return h(RoomAvatar,{room:item,roster:{byId:Object.fromEntries(items.filter(x=>x.kind==='bot').map(x=>[x.id,x]))},size})
   return h(BotAvatar,{bot:item,size,state:botState(item.running,item.activity,item.alert),main:item.isMain,live:true,gaze:size>=60})
 }
-export function MobileSettings({preference,phone,view}){
+export function MobileSettings({preference,access,view}){
   const enabled=useSyncExternalStore(preference.subscribe,preference.snapshot,preference.snapshot)
   if(view==='summary')return '手机会话界面与扫码登录入口。'
   return h('div',null,
     h('label',null,h('input',{type:'checkbox','aria-label':'启用手机布局',checked:enabled,onChange:event=>preference.set(event.target.checked)}),' 启用手机布局'),
     h('p',null,'界面偏好仅保存在当前浏览器。'),
-    h('button',{type:'button',onClick:()=>phone.open()},'手机访问'))
+    h('button',{type:'button',onClick:access.open},'手机访问'))
 }
 export function MobileChrome({controller,preference}){
   const state=useSyncExternalStore(controller.subscribe,controller.snapshot,controller.snapshot)
@@ -70,7 +72,8 @@ export function apply(ctx){
   const api=createMobileClient({appRoot:new URL('./',location.href).href})
   const controller=createMobileNavigation({api,workspace:ctx.uiWorkspace,sessions:ctx.sessions,connection:ctx.connection,history:window.history})
   const phone=createPhoneController({appRoot:new URL('./',location.href).href,form:ctx.configForms.get('mobile-layout-local')})
-  ctx.effect(()=>()=>phone.dispose())
+  const access=registerMobileAccessProvider({id:'web',label:'Web',order:10,render:()=>h(WebAccessPanel,{phone})})
+  ctx.effect(()=>()=>{access.dispose();phone.dispose()})
   ctx.effect(()=>{
     const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+phoneCss;document.head.append(style)
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
@@ -105,6 +108,6 @@ export function apply(ctx){
     }
   })
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference})},MobileChrome))
-  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-phone-access',order:41,inject:()=>({phone})},PhoneAccess))
-  ctx.slots.inject('plugins.bundle.config',()=>ctx.slots.register({name:'plugins.bundle.config',key:'ds-bot-mobile-web',inject:()=>({preference,phone})},MobileSettings))
+  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-phone-access',order:41,inject:()=>({access})},MobileAccessHost))
+  ctx.slots.inject('plugins.bundle.config',()=>ctx.slots.register({name:'plugins.bundle.config',key:'ds-bot-mobile-web',inject:()=>({preference,access})},MobileSettings))
 }
