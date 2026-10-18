@@ -4,10 +4,11 @@ const failure = (code, message, extra = {}) => Object.assign(new Error(message),
 // This module never accepts launch tokens and never reads browser cookies.
 export function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {}) {
   const root = new URL(appRoot)
-  if (!['http:', 'https:'].includes(root.protocol) || root.username || root.password || root.search || root.hash || !root.pathname.endsWith('/')) {
+  const desktopRoot = root.protocol === 'dsh-app:' && root.hostname === 'app' && root.port === '' && root.pathname === '/'
+  if ((!['http:', 'https:'].includes(root.protocol) && !desktopRoot) || root.username || root.password || root.search || root.hash || !root.pathname.endsWith('/')) {
     throw failure('mobile/invalid-root', 'Expected the clean DSH application root URL')
   }
-  if (globalThis.location && root.origin !== globalThis.location.origin) {
+  if (globalThis.location && (root.protocol !== globalThis.location.protocol || root.host !== globalThis.location.host)) {
     throw failure('mobile/cross-origin', 'Mobile UI and DSH must share an origin')
   }
   const route = new URL('api/bot', root)

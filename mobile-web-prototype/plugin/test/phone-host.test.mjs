@@ -5,8 +5,8 @@ import {applyPhoneAccess,phoneDestination,phoneReply} from '../phone-access.mjs'
 const browserPeer={}
 const connection={browserPeer,requestRejection:request=>request.headers.host==='dsh.example.com'?401:403,admit:request=>request.headers.cookie==='owner'?{peer:browserPeer}:request.headers.cookie==='other'?{peer:{}}:{rejection:401},authenticatedUrl:base=>base+'?token=fixture'}
 const ctxFor=()=>{let route,dispose=0;const ctx={connection,webApp:{getAdvertisedUrl:()=> 'https://dsh.example.com/'},webServer:{port:3399,protocol:'http:',register(value){route=value;return()=>dispose++}},effect:effect=>{ctx.cleanup=effect()}};return {ctx,route:()=>route,disposed:()=>dispose}}
-async function invoke(route,{host='127.0.0.1:3399',origin='http://127.0.0.1:3399',cookie='owner',address='127.0.0.1',method='POST',body='{"action":"login"}',contentType='application/json'}={}){
-  const req=Readable.from([body]);Object.assign(req,{headers:{host,origin,cookie,'content-type':contentType},socket:{remoteAddress:address},method})
+async function invoke(route,{host='127.0.0.1:3399',origin='http://127.0.0.1:3399',cookie='owner',address='127.0.0.1',method='POST',body='{"action":"login"}',contentType='application/json',desktop=false,site}={}){
+  const req=Readable.from([body]);Object.assign(req,{headers:{host,...(!desktop?{origin}:{}),cookie,'content-type':contentType,...(site===undefined?{}:{'sec-fetch-site':site})},socket:{remoteAddress:address},method})
   const res={headers:{},setHeader(key,value){this.headers[key]=value},writeHead(status,headers){this.status=status;Object.assign(this.headers,headers)},end(body){this.body=body?JSON.parse(body):undefined}}
   await route.handler(req,res);return res
 }
@@ -25,6 +25,19 @@ test('route enforces local port, same Origin, owner authentication and POST',asy
   assert.equal((await invoke(fixture.route(),{method:'GET'})).status,405)
   const ready=await invoke(fixture.route());assert.equal(ready.status,200);assert.equal(ready.body.status,'ready');assert.match(ready.headers['cache-control'],/no-store/);assert.equal(ready.headers['referrer-policy'],'no-referrer')
 })
+test('Desktop owner forwarding without browser origin remains local and authenticated',async()=>{
+  const fixture=ctxFor();applyPhoneAccess(fixture.ctx,{})
+  const ready=await invoke(fixture.route(),{desktop:true})
+  assert.equal(ready.status,200);assert.equal(ready.body.status,'ready')
+  assert.equal((await invoke(fixture.route(),{desktop:true,cookie:''})).status,401)
+  assert.equal((await invoke(fixture.route(),{desktop:true,cookie:'other'})).status,403)
+  assert.equal((await invoke(fixture.route(),{desktop:true,site:'cross-site'})).status,403)
+  assert.equal((await invoke(fixture.route(),{origin:'null'})).status,403)
+  assert.equal((await invoke(fixture.route(),{desktop:true,host:'dsh.example.com'})).status,403)
+  assert.equal((await invoke(fixture.route(),{desktop:true,address:'192.0.2.1'})).status,403)
+  assert.equal((await invoke(fixture.route(),{desktop:true,host:'127.0.0.1:3400'})).status,403)
+})
+
 test('malformed or oversized input is rejected and disposal unregisters the route',async()=>{
   const fixture=ctxFor();applyPhoneAccess(fixture.ctx,{})
   for(const body of ['null','[]','{','{"action":"anything"}','{"action":"login","unexpected":true}'])assert.equal((await invoke(fixture.route(),{body})).status,400)

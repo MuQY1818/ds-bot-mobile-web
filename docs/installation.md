@@ -2,7 +2,7 @@
 
 本插件安装在运行 DSH 和 DS Bot 的电脑上，为现有 Web 界面增加手机布局。手机通过浏览器访问这台电脑，无需在手机上安装 `.tgz` 文件。原有 Bot、群聊和会话继续由 DS Bot 管理。
 
-本文对应 v0.1.4。版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.4) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
+本文对应 v0.1.5。版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.5) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
 
 ## 已有DSH用户
 
@@ -16,9 +16,9 @@
 
 ### 2. 下载发布包并核对 SHA-256
 
-在电脑上打开 [v0.1.4 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.4)，从同一次 Release 的附件下载：
+在电脑上打开 [v0.1.5 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.5)，从同一次 Release 的附件下载：
 
-- `dsh-mobile-layout-local-0.1.4.tgz`
+- `dsh-mobile-layout-local-0.1.5.tgz`
 - `SHA256SUMS`
 
 将两份文件放在同一目录。后续版本使用对应文件名，不要混用不同版本的安装包和校验文件。GitHub 自动生成的源码压缩包不能替代这里的插件 `.tgz`。
@@ -42,7 +42,7 @@ macOS 和 Linux 应显示所需 `.tgz` 校验通过。若清单还列出其他�
 Windows：在 PowerShell 进入下载目录后运行：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\dsh-mobile-layout-local-0.1.4.tgz
+Get-FileHash -Algorithm SHA256 .\dsh-mobile-layout-local-0.1.5.tgz
 Get-Content .\SHA256SUMS
 ```
 
@@ -134,6 +134,6 @@ python3 scripts/mock-bench.py
 
 ## 当前状态
 
-v0.1.4 的账户菜单、二维码签发、地址保存、域名信任拒绝、复制反馈、关闭清理和窄屏显示已在独立 DSH 0.2.1-rc.2 中验收。先前 v0.1.3 已完成正式移动布局部署和手机登录；两者的测试范围分别记录在[验证说明](validation.md)。
+v0.1.5 增加桌面内部协议、桌面转发请求和菜单尺寸修复；对应本地修复版已在实际 DSH Desktop 窗口验证启动、菜单和二维码。账户菜单、地址保存、复制反馈及窄屏检查的较早隔离证据来自 v0.1.4。先前 v0.1.3 已完成正式移动布局部署和手机登录；两者的测试范围分别记录在[验证说明](validation.md)。
 
 Chromium 窄视口检查不能代替 iPhone Safari 的软键盘、安全区、锁屏和长时间后台测试。第三方插件在运行时注册的精灵形状也不一定与本插件单独打包的 registry 共享。具体边界见[验证范围](validation.md)、[架构与边界](architecture.md)及[故障排查](troubleshooting.md)。

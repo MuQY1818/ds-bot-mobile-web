@@ -2,7 +2,7 @@
 
 给现有 DS Bot 加上手机会话界面，以及电脑端的扫码登录入口。手机继续使用同一支 Bot 团队、同一份会话和原版输入框；电脑宽屏保留桌面布局。
 
-**当前版本：0.1.4。** 这是预览版，目标组合是 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。下载入口：[Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases)。
+**当前版本：0.1.5。** 这是预览版，目标组合是 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。下载入口：[Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases)。
 
 ## 能做什么
 
@@ -19,7 +19,7 @@
 
 在运行 DS Bot 的**电脑上**操作：
 
-1. 从 [v0.1.4 Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.4) 下载 `dsh-mobile-layout-local-0.1.4.tgz` 和 `SHA256SUMS`，核对文件校验值。
+1. 从 [v0.1.5 Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.5) 下载 `dsh-mobile-layout-local-0.1.5.tgz` 和 `SHA256SUMS`，核对文件校验值。
 2. 打开现有 DSH 的插件管理器，安装这个本地压缩包，确认版本后启用，再刷新现有页面。
 3. 点击 DS Bot 左下角账户按钮，选择“手机访问”。如果入口未设置，填写已经配置好的 HTTPS 地址并保存；如果宿主已公布可用地址，会直接显示二维码。
 4. 手机连接同一私网或已配置的网络入口，用相机扫码，在浏览器中打开。
@@ -50,7 +50,7 @@ npm run pack
 npm run audit:files
 ```
 
-安装包和 SHA-256 写入被 Git 忽略的 `artifacts/`。`release.json` 记录源码提交、工作区状态和包哈希；打包要求已跟踪源码干净。旧版本的包和标签保留，版本号不会指向另一份重新打包的内容。
+安装包和 SHA-256 写入被 Git 忽略的 `artifacts/`。`release.json` 记录源码提交、工作区状态和包哈希；打包要求源码、测试和文档全部提交，包含未跟踪文件检查；根包与插件版本必须一致，生成客户端必须与提交一致。旧版本的包和标签保留，版本号不会指向另一份重新打包的内容。
 
 React 和公开宿主 schema 服务由现有 DSH 提供。二维码编码器在构建时打入客户端，不调用第三方二维码网站。仓库中的 `mobile-host-adapter/` 是可选的协议适配与测试材料，不需要为手机 Web 另装原生 bridge。
 

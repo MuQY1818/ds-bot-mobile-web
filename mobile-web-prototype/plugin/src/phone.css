@@ -1,6 +1,5 @@
-.bt-account-menu .dsm-menu-phone{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.bt-account-menu .dsm-menu-phone:hover{background:var(--bt-hover,rgba(127,127,127,.12))}
-.dsm-menu-phone svg{flex:none}
+/* AccountPhoneEntry uses DS Bot's .bt-menu button styles, including typography,
+   spacing, icon size and hover state. Keep its menu row free of local overrides. */
 .dsm-phone-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.28);color:var(--bt-ink,#141414);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backdrop-filter:blur(3px)}
 .dsm-phone-dialog{box-sizing:border-box;width:480px;max-width:100%;max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:20px;background:var(--bt-main,#fcfcfc);padding:24px;box-shadow:0 18px 70px rgba(0,0,0,.18)}
 .dsm-phone-dialog *{box-sizing:border-box}

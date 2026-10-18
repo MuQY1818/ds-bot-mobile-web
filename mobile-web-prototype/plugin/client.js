@@ -1859,10 +1859,11 @@ var import_react3 = require("react");
 var failure = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
 function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {}) {
   const root = new URL(appRoot);
-  if (!["http:", "https:"].includes(root.protocol) || root.username || root.password || root.search || root.hash || !root.pathname.endsWith("/")) {
+  const desktopRoot = root.protocol === "dsh-app:" && root.hostname === "app" && root.port === "" && root.pathname === "/";
+  if (!["http:", "https:"].includes(root.protocol) && !desktopRoot || root.username || root.password || root.search || root.hash || !root.pathname.endsWith("/")) {
     throw failure("mobile/invalid-root", "Expected the clean DSH application root URL");
   }
-  if (globalThis.location && root.origin !== globalThis.location.origin) {
+  if (globalThis.location && (root.protocol !== globalThis.location.protocol || root.host !== globalThis.location.host)) {
     throw failure("mobile/cross-origin", "Mobile UI and DSH must share an origin");
   }
   const route = new URL("api/bot", root);
@@ -2351,7 +2352,44 @@ function PhoneAccess({ phone }) {
 }
 
 // src/phone.css
-var phone_default = '.bt-account-menu .dsm-menu-phone{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}\n.bt-account-menu .dsm-menu-phone:hover{background:var(--bt-hover,rgba(127,127,127,.12))}\n.dsm-menu-phone svg{flex:none}\n.dsm-phone-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.28);color:var(--bt-ink,#141414);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backdrop-filter:blur(3px)}\n.dsm-phone-dialog{box-sizing:border-box;width:480px;max-width:100%;max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:20px;background:var(--bt-main,#fcfcfc);padding:24px;box-shadow:0 18px 70px rgba(0,0,0,.18)}\n.dsm-phone-dialog *{box-sizing:border-box}\n.dsm-phone-dialog header,.dsm-phone-heading{display:flex;align-items:center;gap:10px}\n.dsm-phone-dialog header{justify-content:space-between}\n.dsm-phone-dialog h1{margin:0;font-size:20px;line-height:28px;font-weight:600}\n.dsm-phone-dialog button,.dsm-phone-dialog input,.dsm-phone-dialog textarea{font:inherit}\n.dsm-phone-close{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font-size:28px!important;cursor:pointer}\n.dsm-phone-close:hover{background:var(--bt-hover,rgba(127,127,127,.12))}\n.dsm-phone-intro{margin:10px 0 20px;color:var(--bt-ink-2,#555)}\n.dsm-phone-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--bt-ink-2,#555)}\n.dsm-phone-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}\n.dsm-phone-status[data-ready=true]>span{background:var(--bt-green,#00a56a)}\n.dsm-phone-ready{text-align:center}\n.dsm-phone-qr{display:block;max-width:100%;height:auto;margin:18px auto 10px;border-radius:8px;background:white}\n.dsm-phone-scan{margin:8px 0 2px}\n.dsm-phone-address{margin:0 0 18px;font-size:12px;color:var(--bt-ink-2,#555);overflow-wrap:anywhere}\n.dsm-phone-primary,.dsm-phone-config button{min-height:44px;border:0;border-radius:12px;padding:10px 20px;background:var(--bt-user,#070707);color:var(--bt-user-ink,#fcfcfc);cursor:pointer}\n.dsm-phone-primary{width:100%;font-weight:600!important}\n.dsm-phone-actions{display:flex;justify-content:center;gap:20px;margin-top:12px}\n.dsm-phone-actions button{min-height:36px;border:0;padding:4px;background:transparent;color:var(--bt-ink-2,#555);text-decoration:underline;text-underline-offset:3px;cursor:pointer}\n.dsm-phone-manual{margin-top:12px;text-align:left;font-size:12px;color:var(--bt-ink-2,#555)}\n.dsm-phone-manual summary{cursor:pointer;text-align:center}\n.dsm-phone-manual textarea{display:block;width:100%;min-height:88px;margin-top:8px;border:1px solid var(--bt-line-2,#bbb);border-radius:8px;background:var(--bt-card,#fff);color:inherit;padding:8px;overflow-wrap:anywhere;resize:vertical}\n.dsm-phone-help{margin:18px 0;color:var(--bt-ink-2,#555)}\n.dsm-phone-config{margin-top:18px;padding-top:16px;border-top:1px solid var(--bt-line,#ddd)}\n.dsm-phone-config label{display:block;font-weight:600}\n.dsm-phone-config input{width:100%;min-height:44px;padding:9px 11px;margin-top:8px;border:1px solid var(--bt-line-2,#bbb);border-radius:10px;color:inherit;background:var(--bt-card,#fff)}\n.dsm-phone-config p{font-size:12px;color:var(--bt-ink-2,#555)}\n.dsm-phone-config button:disabled{opacity:.5;cursor:default}\n.dsm-phone-error{margin:14px 0 0;color:var(--bt-danger,#c22)}\n.dsm-phone-dialog footer{margin-top:22px;padding-top:14px;border-top:1px solid var(--bt-line,#ddd);font-size:12px;color:var(--bt-ink-2,#555)}\n.dsm-phone-dialog footer p{margin:4px 0}\n.dsm-phone-dialog :is(button,input,textarea,summary):focus-visible,.dsm-menu-phone:focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}\n@media(max-width:520px){.dsm-phone-backdrop{padding:12px}.dsm-phone-dialog{padding:20px;max-height:calc(100dvh - 24px)}.dsm-phone-dialog input{font-size:16px}}\n';
+var phone_default = `/* AccountPhoneEntry uses DS Bot's .bt-menu button styles, including typography,
+   spacing, icon size and hover state. Keep its menu row free of local overrides. */
+.dsm-phone-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.28);color:var(--bt-ink,#141414);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backdrop-filter:blur(3px)}
+.dsm-phone-dialog{box-sizing:border-box;width:480px;max-width:100%;max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:20px;background:var(--bt-main,#fcfcfc);padding:24px;box-shadow:0 18px 70px rgba(0,0,0,.18)}
+.dsm-phone-dialog *{box-sizing:border-box}
+.dsm-phone-dialog header,.dsm-phone-heading{display:flex;align-items:center;gap:10px}
+.dsm-phone-dialog header{justify-content:space-between}
+.dsm-phone-dialog h1{margin:0;font-size:20px;line-height:28px;font-weight:600}
+.dsm-phone-dialog button,.dsm-phone-dialog input,.dsm-phone-dialog textarea{font:inherit}
+.dsm-phone-close{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font-size:28px!important;cursor:pointer}
+.dsm-phone-close:hover{background:var(--bt-hover,rgba(127,127,127,.12))}
+.dsm-phone-intro{margin:10px 0 20px;color:var(--bt-ink-2,#555)}
+.dsm-phone-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--bt-ink-2,#555)}
+.dsm-phone-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}
+.dsm-phone-status[data-ready=true]>span{background:var(--bt-green,#00a56a)}
+.dsm-phone-ready{text-align:center}
+.dsm-phone-qr{display:block;max-width:100%;height:auto;margin:18px auto 10px;border-radius:8px;background:white}
+.dsm-phone-scan{margin:8px 0 2px}
+.dsm-phone-address{margin:0 0 18px;font-size:12px;color:var(--bt-ink-2,#555);overflow-wrap:anywhere}
+.dsm-phone-primary,.dsm-phone-config button{min-height:44px;border:0;border-radius:12px;padding:10px 20px;background:var(--bt-user,#070707);color:var(--bt-user-ink,#fcfcfc);cursor:pointer}
+.dsm-phone-primary{width:100%;font-weight:600!important}
+.dsm-phone-actions{display:flex;justify-content:center;gap:20px;margin-top:12px}
+.dsm-phone-actions button{min-height:36px;border:0;padding:4px;background:transparent;color:var(--bt-ink-2,#555);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.dsm-phone-manual{margin-top:12px;text-align:left;font-size:12px;color:var(--bt-ink-2,#555)}
+.dsm-phone-manual summary{cursor:pointer;text-align:center}
+.dsm-phone-manual textarea{display:block;width:100%;min-height:88px;margin-top:8px;border:1px solid var(--bt-line-2,#bbb);border-radius:8px;background:var(--bt-card,#fff);color:inherit;padding:8px;overflow-wrap:anywhere;resize:vertical}
+.dsm-phone-help{margin:18px 0;color:var(--bt-ink-2,#555)}
+.dsm-phone-config{margin-top:18px;padding-top:16px;border-top:1px solid var(--bt-line,#ddd)}
+.dsm-phone-config label{display:block;font-weight:600}
+.dsm-phone-config input{width:100%;min-height:44px;padding:9px 11px;margin-top:8px;border:1px solid var(--bt-line-2,#bbb);border-radius:10px;color:inherit;background:var(--bt-card,#fff)}
+.dsm-phone-config p{font-size:12px;color:var(--bt-ink-2,#555)}
+.dsm-phone-config button:disabled{opacity:.5;cursor:default}
+.dsm-phone-error{margin:14px 0 0;color:var(--bt-danger,#c22)}
+.dsm-phone-dialog footer{margin-top:22px;padding-top:14px;border-top:1px solid var(--bt-line,#ddd);font-size:12px;color:var(--bt-ink-2,#555)}
+.dsm-phone-dialog footer p{margin:4px 0}
+.dsm-phone-dialog :is(button,input,textarea,summary):focus-visible,.dsm-menu-phone:focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}
+@media(max-width:520px){.dsm-phone-backdrop{padding:12px}.dsm-phone-dialog{padding:20px;max-height:calc(100dvh - 24px)}.dsm-phone-dialog input{font-size:16px}}
+`;
 
 // src/mobile.css
 var mobile_default = `.dsm-chrome,.dsm-return{display:none}

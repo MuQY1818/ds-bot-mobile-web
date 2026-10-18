@@ -1,6 +1,6 @@
 {
   "name": "dsh-mobile-layout-local",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "DS Bot mobile Web layout with a local QR login and link-sharing panel",
   "private": true,
   "type": "module",

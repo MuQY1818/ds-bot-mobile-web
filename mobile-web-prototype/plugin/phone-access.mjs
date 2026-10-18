@@ -38,8 +38,11 @@ export function applyPhoneAccess(ctx,config){
     const host=request.headers.host??''
     let caller
     try{caller=new URL(`${ctx.webServer.protocol??'http:'}//${host}`)}catch{send(403,{status:'local-computer-required'});return}
-    // An HTTPS proxy can have a loopback socket; require its literal local Host too.
-    if(!localSocket(request.socket?.remoteAddress)||!loopback(caller.hostname)||Number(caller.port||(caller.protocol==='https:'?443:80))!==ctx.webServer.port||request.headers.origin!==caller.origin){send(403,{status:'local-computer-required'});return}
+    // Desktop's authenticated dsh-app proxy removes Origin and Sec-Fetch-Site.
+    // Ordinary browsers must still provide this listener's exact same origin.
+    const origin=request.headers.origin
+    const localCarrier=origin===undefined&&request.headers['sec-fetch-site']===undefined
+    if(!localSocket(request.socket?.remoteAddress)||!loopback(caller.hostname)||Number(caller.port||(caller.protocol==='https:'?443:80))!==ctx.webServer.port||(!localCarrier&&origin!==caller.origin)){send(403,{status:'local-computer-required'});return}
     const admission=ctx.connection.admit(request)
     if('rejection' in admission){send(admission.rejection,{status:'authentication-required'});return}
     if(admission.peer!==ctx.connection.browserPeer){send(403,{status:'local-computer-required'});return}
