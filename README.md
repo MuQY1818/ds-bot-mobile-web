@@ -6,7 +6,7 @@
 
 ## 目录
 
-- `mobile-web-prototype/plugin/`：实际移动布局插件 `dsh-mobile-layout-local`，版本0.1.1。
+- `mobile-web-prototype/plugin/`：实际移动布局插件 `dsh-mobile-layout-local`，版本0.1.2。
 - `mobile-host-adapter/`：公开宿主协议适配、可选会话投影封装与隔离契约测试。
 - `ds-bot-upstream/`：固定提交的上游 Git submodule，供精灵组件构建和真实上游通道测试使用；不会作为另一个运行时安装。
 - `docs/`：架构、验证边界和版本记录。
@@ -37,10 +37,10 @@ npm run pack
 
 ## 精灵与许可
 
-0.1.1将字母占位头像替换为上游 `BotAvatar`、`RoomAvatar` 与 `botState`，保留原图形和工作状态，使用现有DS Bot动效CSS。构建只为SVG mask改用独立命名空间，避免同页冲突。详见插件 `NOTICE` 与根目录 `NOTICE`；上游源文件保持在固定submodule中。
+0.1.2将字母占位头像替换为上游 `BotAvatar`、`RoomAvatar` 与 `botState`，保留原图形和工作状态，使用现有DS Bot动效CSS。构建只为SVG mask改用独立命名空间，避免同页冲突。详见插件 `NOTICE` 与根目录 `NOTICE`；上游源文件保持在固定submodule中。
 
 ## 验证边界
 
-已在公开npm DSH0.2.0-rc.2、DS Bot0.1.7和仓库mock模型的独立组合验证正文增量、群归属回复、离线草稿恢复及手机布局。0.1.1精灵动态验收按对应版本记录执行。测试不代表iPhone Safari真机软键盘、安全区、长时间后台恢复或“提交已接受但确认丢失”全部通过。
+已在公开npm DSH0.2.0-rc.2、DS Bot0.1.7和仓库mock模型的独立组合验证正文增量、群归属回复、离线草稿恢复及手机布局。0.1.2精灵动态验收按对应版本记录执行。测试不代表iPhone Safari真机软键盘、安全区、长时间后台恢复或“提交已接受但确认丢失”全部通过。
 
 当前CSS依赖宿主公开data标记及部分编译class后缀；升级DSH后须回归布局。参考 `docs/architecture.md`、`docs/validation.md`与`CHANGELOG.md`。

@@ -1,13 +1,13 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "upstreamCommit": "e522ca474f38a7c7d4d1e8d1c08f1b542fa2667f",
   "sourceFiles": {
     "mobile-web-prototype/plugin/index.mjs": "f2139f787515d010c10ad02d574fd67e8428407b737c959fb00b61b3c9152000",
     "mobile-web-prototype/plugin/client.js": "91afdeeff5b41fcecbd6cc8c7c3779deab5d224a6154e002bdf232585cc4d07c",
     "mobile-web-prototype/plugin/cordis.patch.yml": "915b03e133ccedd1c4b13a3ad76c78a98fd3a44be8f2c424331584332ad39428",
-    "mobile-web-prototype/plugin/README.md": "d683dd7f17ea70d4c1f8b0e6db63c2d4fbd6b814a3f31973db16653919cef07b",
-    "mobile-web-prototype/plugin/package.json": "8d7ecfc9e990538658b7bb7acc7122dee3ec7ff2bf2d66ba10af58bfb6f08747",
-    "mobile-web-prototype/plugin/package-lock.json": "a1bd5a4b60ec5d904282ed73cee8cb51e2160a53a3c9141f6f1be8ccdb755bb3",
+    "mobile-web-prototype/plugin/README.md": "8ce444638df10a8a6fff4316d749247df52a3897d9e18205cb8ad2f9e59faa72",
+    "mobile-web-prototype/plugin/package.json": "3f17ca72ae85e9ab36c2caec7cf590b835e8cb64f36949f4623080133fc4465b",
+    "mobile-web-prototype/plugin/package-lock.json": "c650de8095c3a3864b1599583ffe3d1a58dfd91e8cb1093d1a81cb09affbd57c",
     "mobile-web-prototype/plugin/build.mjs": "fd6a5720fcefc57df5a21c8834353098c344bdb78c6e7809a39ae581cbe40e6f",
     "mobile-web-prototype/plugin/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "mobile-web-prototype/plugin/NOTICE": "5c2b790e60a8db08ee75bdb2b7493e21885f697e4f2f3f4f245dd8ed30960e57",

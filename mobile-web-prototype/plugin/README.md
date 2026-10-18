@@ -1,12 +1,12 @@
 # DS Bot 移动布局插件
 
-`dsh-mobile-layout-local@0.1.1` 为现有DSH Web增加手机导航、列表和布局，保留原版会话、输入框、流式回复、群聊、工具卡片和附件入口，不创建第二套Bot运行时。
+`dsh-mobile-layout-local@0.1.2` 为现有DSH Web增加手机导航、列表和布局，保留原版会话、输入框、流式回复、群聊、工具卡片和附件入口，不创建第二套Bot运行时。
 
 ## 构建与安装
 
 从仓库根执行 `git submodule update --init --recursive`、`npm run setup`、`npm run check`、`npm run build`和`npm run pack`。需要Git、Node.js24+和npm。上游以固定submodule提供，精灵在构建时打包；React由现有DSH提供。
 
-在现有DSH插件管理界面安装生成的 `artifacts/dsh-mobile-layout-local-0.1.1.tgz`，启用bundle后刷新页面。命令行安装先查当前版本 `dsh plugin --help`，确认目标profile和本地包参数。不要关闭认证、创建第二套DS Bot或替换团队。回滚仅停用新增bundle并刷新；当前页可用“原版”按钮撤去手机样式。
+在现有DSH插件管理界面安装生成的 `artifacts/dsh-mobile-layout-local-0.1.2.tgz`，启用bundle后刷新页面。命令行安装先查当前版本 `dsh plugin --help`，确认目标profile和本地包参数。不要关闭认证、创建第二套DS Bot或替换团队。回滚仅停用新增bundle并刷新；当前页可用“原版”按钮撤去手机样式。
 
 ## 公开接法
 
