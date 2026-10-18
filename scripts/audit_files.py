@@ -30,7 +30,7 @@ commits=subprocess.run(['git','rev-list','--all'],cwd=root,capture_output=True,t
 for commit in commits:
  metadata=subprocess.check_output(['git','show','-s','--format=%B%n%ae%n%ce',commit],cwd=root)
  check('commit/'+commit,metadata)
- if any(not line.endswith(b'@users.noreply.github.com') for line in metadata.splitlines()[-2:]):failures.append(('commit/'+commit,'non-public-author-email'))
+ if any(not (line.endswith(b'@users.noreply.github.com') or line==b'noreply@github.com') for line in metadata.splitlines()[-2:]):failures.append(('commit/'+commit,'non-public-author-email'))
  tree=subprocess.check_output(['git','ls-tree','-rz',commit],cwd=root).split(b'\0')
  for record in tree:
   if not record:continue
