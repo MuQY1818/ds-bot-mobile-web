@@ -1,0 +1,8 @@
+{
+  "name": "dsh-mobile-host-adapter-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./index.mjs",
+  "scripts": { "test": "node --import ../ds-bot-upstream/ds-bot/test/harness-resolve.mjs --test *.test.mjs" }
+}

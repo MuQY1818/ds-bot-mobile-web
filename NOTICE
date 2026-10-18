@@ -1,0 +1,13 @@
+DS Bot Mobile Web
+
+Mobile layout and host-adapter integration for the existing DS Bot / DSH client.
+
+This project includes an unmodified pinned Git submodule of:
+https://github.com/Fei2411/DeepSeek-Bot
+Commit: e522ca474f38a7c7d4d1e8d1c08f1b542fa2667f
+License: Apache License 2.0 (see the upstream LICENSE and plugin NOTICE).
+
+The mobile client bundles upstream BotAvatar, BotMark, RoomAvatar, botState,
+character graphics and their imported modules. The build changes only the SVG
+mask namespace from bt-mark- to dsm-mark- to avoid same-document collisions.
+Upstream sources are not patched; DSH and DS Bot remain independent dependencies.

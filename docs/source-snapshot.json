@@ -1,0 +1,25 @@
+{
+  "version": "0.1.1",
+  "upstreamCommit": "e522ca474f38a7c7d4d1e8d1c08f1b542fa2667f",
+  "sourceFiles": {
+    "mobile-web-prototype/plugin/index.mjs": "f2139f787515d010c10ad02d574fd67e8428407b737c959fb00b61b3c9152000",
+    "mobile-web-prototype/plugin/client.js": "91afdeeff5b41fcecbd6cc8c7c3779deab5d224a6154e002bdf232585cc4d07c",
+    "mobile-web-prototype/plugin/cordis.patch.yml": "915b03e133ccedd1c4b13a3ad76c78a98fd3a44be8f2c424331584332ad39428",
+    "mobile-web-prototype/plugin/README.md": "d683dd7f17ea70d4c1f8b0e6db63c2d4fbd6b814a3f31973db16653919cef07b",
+    "mobile-web-prototype/plugin/package.json": "8d7ecfc9e990538658b7bb7acc7122dee3ec7ff2bf2d66ba10af58bfb6f08747",
+    "mobile-web-prototype/plugin/package-lock.json": "a1bd5a4b60ec5d904282ed73cee8cb51e2160a53a3c9141f6f1be8ccdb755bb3",
+    "mobile-web-prototype/plugin/build.mjs": "fd6a5720fcefc57df5a21c8834353098c344bdb78c6e7809a39ae581cbe40e6f",
+    "mobile-web-prototype/plugin/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "mobile-web-prototype/plugin/NOTICE": "5c2b790e60a8db08ee75bdb2b7493e21885f697e4f2f3f4f245dd8ed30960e57",
+    "mobile-web-prototype/plugin/src/client.mjs": "2d7edc1474bd4a574ae78053717550ac0347677c6af6bfa78c2ae8b8a0c252a9",
+    "mobile-web-prototype/plugin/src/controller.mjs": "280f2f07d6a78ce3a144defe284a0e0eaee7a7858dc278d2e17ebb4aeec811e3",
+    "mobile-web-prototype/plugin/src/mobile.css": "650ec9195d021684d674e4768f867d8660b1a34242a46f95e60b9a5423feed97",
+    "mobile-web-prototype/plugin/test/navigation.test.mjs": "ea6521821c0495b24fffc738d196a3c43682929de4ef1e8c6986d3e94d6d3266",
+    "mobile-host-adapter/client.mjs": "7937a5b7920f43863f3c776c8500af2c232f97d4489546fb2813782ae10fe73b",
+    "mobile-host-adapter/index.mjs": "48a300353983d3eb0c7cfce9fbe89ed894e7f0f88cf8023072562c79563ac560",
+    "mobile-host-adapter/conversation-feed.mjs": "6b7f51a0a8f774f098b93e26339e53a0f3dc1a63be9d88bce2b2a648c5721be1",
+    "mobile-host-adapter/adapter.test.mjs": "da58bf2c40a8d6023199ef9f5128ff7ac70ec1bcf751b007f4ed407182309a20",
+    "mobile-host-adapter/conversation-feed.test.mjs": "9d2c83c51474e0cbf17e353e4d7976e6239312ea5bea6a808410ed53d02e31f9",
+    "mobile-host-adapter/package.json": "86d2429a3dba7a677c5ee920bea0c9cbbb1d27f66d64e9c33015d417f8e6d1f7"
+  }
+}

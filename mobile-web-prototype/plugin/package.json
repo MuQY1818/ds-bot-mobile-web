@@ -1,0 +1,29 @@
+{
+  "name": "dsh-mobile-layout-local",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "files": ["index.mjs", "client.js", "cordis.patch.yml", "README.md", "NOTICE", "LICENSE"],
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

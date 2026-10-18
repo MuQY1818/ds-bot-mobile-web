@@ -1,0 +1,13 @@
+DS Bot mobile layout mascot reuse
+
+This package bundles BotAvatar, BotMark, RoomAvatar and botState, together with
+characters.js, inks.js and their localization dependency, from:
+https://github.com/Fei2411/DeepSeek-Bot
+Local source version: ds-bot 0.1.7, ds-bot/src/client/mark.js and dependencies.
+These original DS Bot components and character graphics are licensed under
+Apache License 2.0. See LICENSE.
+
+The mobile build changes only the generated SVG mask namespace from bt-mark-
+to dsm-mark- to avoid collisions with the concurrently mounted original UI.
+Motion CSS is provided by the existing DS Bot plugin. No upstream files are
+modified. Mobile navigation, status-data mapping and layout remain separate.
