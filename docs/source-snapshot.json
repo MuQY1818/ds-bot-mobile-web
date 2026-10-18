@@ -1,5 +1,5 @@
 {
-  "version": "0.1.5",
+  "version": "0.2.0",
   "upstreamCommit": "e522ca474f38a7c7d4d1e8d1c08f1b542fa2667f",
   "sourceFiles": {
     "mobile-host-adapter/adapter.test.mjs": "da58bf2c40a8d6023199ef9f5128ff7ac70ec1bcf751b007f4ed407182309a20",

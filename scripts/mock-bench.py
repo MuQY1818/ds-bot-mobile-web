@@ -16,10 +16,10 @@ def prepare():
     profile = HOME_DIR / 'profiles/web'
     profile.mkdir(parents=True, exist_ok=True)
     packages = {'ds-bot': UPSTREAM, 'dsh-mobile-host-adapter-local': WORKSPACE / 'mobile-host-adapter',
-                'dsh-mobile-layout-local': WORKSPACE / 'mobile-web-prototype/plugin'}
+                'ds-bot-mobile-web': WORKSPACE / 'mobile-web-prototype/plugin'}
     manifest = {'name': 'dsh-profile-web', 'private': True,
       'dependencies': {name: 'link:' + str(path) for name, path in packages.items()},
-      'dsh': {'profile': {'bundles': ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'ds-bot', 'dsh-mobile-layout-local']}}}
+      'dsh': {'profile': {'bundles': ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'ds-bot', 'ds-bot-mobile-web']}}}
     (profile / 'package.json').write_text(json.dumps(manifest, indent=2) + '\n')
     modules = profile / 'node_modules'
     modules.mkdir(exist_ok=True)

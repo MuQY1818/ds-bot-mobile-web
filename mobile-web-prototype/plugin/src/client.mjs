@@ -106,5 +106,5 @@ export function apply(ctx){
   })
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference})},MobileChrome))
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-phone-access',order:41,inject:()=>({phone})},PhoneAccess))
-  ctx.slots.inject('plugins.item',()=>ctx.slots.register({name:'plugins.item',id:'mobile-layout-local-settings',order:140,label:'手机布局',inject:()=>({preference,phone})},MobileSettings))
+  ctx.slots.inject('plugins.item',()=>ctx.slots.register({name:'plugins.item',id:'mobile-layout-local-settings',order:140,label:'DS Bot Mobile Web',inject:()=>({preference,phone})},MobileSettings))
 }

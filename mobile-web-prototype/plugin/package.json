@@ -1,21 +1,52 @@
 {
-  "name": "dsh-mobile-layout-local",
-  "version": "0.1.5",
-  "description": "DS Bot mobile Web layout with a local QR login and link-sharing panel",
+  "name": "ds-bot-mobile-web",
+  "version": "0.2.0",
+  "description": "DS Bot Mobile Web — mobile conversations and secure QR access for your existing DS Bot team",
   "private": true,
   "type": "module",
   "main": "index.mjs",
   "license": "Apache-2.0",
   "homepage": "https://github.com/MuQY1818/ds-bot-mobile-web",
-  "repository": {"type":"git","url":"git+https://github.com/MuQY1818/ds-bot-mobile-web.git","directory":"mobile-web-prototype/plugin"},
-  "bugs": {"url":"https://github.com/MuQY1818/ds-bot-mobile-web/issues"},
-  "files": ["index.mjs", "phone-access.mjs", "client.js", "cordis.patch.yml", "README.md", "NOTICE", "LICENSE"],
-  "exports": {".":"./index.mjs","./client":"./client.js"},
-  "dsh": {"client":{"platform":"web"},"bundle":{"patch":"./cordis.patch.yml"}},
-  "peerDependencies": {"@deepseek-ai/schemastery":"*"},
-  "scripts": {
-    "build":"node build.mjs",
-    "check":"node --check index.mjs && node --check phone-access.mjs && node --check src/client.mjs && node --check src/controller.mjs && node --check src/phone-access.mjs && node --check src/phone-controller.mjs && node --test test/*.test.mjs"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MuQY1818/ds-bot-mobile-web.git",
+    "directory": "mobile-web-prototype/plugin"
   },
-  "devDependencies": {"esbuild":"0.28.2","qrcode":"1.5.4","react":"^19.3.1","react-dom":"^19.3.1"}
+  "bugs": {
+    "url": "https://github.com/MuQY1818/ds-bot-mobile-web/issues"
+  },
+  "files": [
+    "index.mjs",
+    "phone-access.mjs",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "NOTICE",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node --check index.mjs && node --check phone-access.mjs && node --check src/client.mjs && node --check src/controller.mjs && node --check src/phone-access.mjs && node --check src/phone-controller.mjs && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "qrcode": "1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
 }

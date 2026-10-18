@@ -1,10 +1,10 @@
 # DS Bot 移动布局插件
 
-`dsh-mobile-layout-local@0.1.5` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
+`ds-bot-mobile-web@0.2.0` 为现有 DSH Web 增加手机会话界面和电脑端的扫码登录弹窗。它保留原版会话、输入框、流式回复、群聊和交互卡片，不创建第二套 Bot 运行时。
 
 ## 安装与更新
 
-在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `dsh-mobile-layout-local-0.1.5.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
+在运行 DSH 的电脑上，通过官方插件管理器安装 Release 附件 `ds-bot-mobile-web-0.2.0.tgz`，先核对同次发布的 `SHA256SUMS`，再启用并刷新。手机不用安装这个压缩包。
 
 完整教程：[安装](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/installation.md)、[远程访问](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/remote-access.md)、[故障排查](https://github.com/MuQY1818/ds-bot-mobile-web/blob/main/docs/troubleshooting.md)。
 

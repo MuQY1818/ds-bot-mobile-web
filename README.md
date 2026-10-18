@@ -2,7 +2,7 @@
 
 给现有 DS Bot 加上手机会话界面，以及电脑端的扫码登录入口。手机继续使用同一支 Bot 团队、同一份会话和原版输入框；电脑宽屏保留桌面布局。
 
-**当前版本：0.1.5。** 这是预览版，目标组合是 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。下载入口：[Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases)。
+**当前版本：0.2.0。** [原生 App](https://github.com/MuQY1818/ds-bot-mobile-app) 与 Web 分别维护。 这是预览版，目标组合是 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。下载入口：[Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases)。
 
 ## 能做什么
 
@@ -19,12 +19,14 @@
 
 在运行 DS Bot 的**电脑上**操作：
 
-1. 从 [v0.1.5 Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.5) 下载 `dsh-mobile-layout-local-0.1.5.tgz` 和 `SHA256SUMS`，核对文件校验值。
+1. 从 [v0.2.0 Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0) 下载 `ds-bot-mobile-web-0.2.0.tgz` 和 `SHA256SUMS`，核对文件校验值。
 2. 打开现有 DSH 的插件管理器，安装这个本地压缩包，确认版本后启用，再刷新现有页面。
 3. 点击 DS Bot 左下角账户按钮，选择“手机访问”。如果入口未设置，填写已经配置好的 HTTPS 地址并保存；如果宿主已公布可用地址，会直接显示二维码。
 4. 手机连接同一私网或已配置的网络入口，用相机扫码，在浏览器中打开。
 
 如果你还没有手机可访问的入口，先看[远程访问与登录配置](docs/remote-access.md)。插件不会创建 Tailscale 隧道、配置公网代理或自动放宽域名信任。
+
+从旧包 `dsh-mobile-layout-local` 升级时，先在管理器停用旧包，再安装并启用 `ds-bot-mobile-web`；保留现有配置即可。不要同时启用两个包。
 
 完整步骤见[安装教程](docs/installation.md)。常见错误，尤其是 `authentication required`，见[故障排查](docs/troubleshooting.md)。
 
@@ -32,7 +34,7 @@
 
 手机界面有“聊天、团队、连接”三个入口。进入聊天后收起底部导航，给正文和输入区留出空间。断网或电脑休眠后，先恢复连接，再查看最新消息；插件不会因为回到前台而自动重发草稿。
 
-聊天页右上角的“原版”可以切回原布局。选择保存在当前浏览器；DSH 插件设置页的“手机布局”也能切换。需要完整回退时，在插件管理器中停用 `dsh-mobile-layout-local` 并刷新即可。详细操作见[使用说明](docs/usage.md)。
+聊天页右上角的“原版”可以切回原布局。选择保存在当前浏览器；DSH 插件设置页的“手机布局”也能切换。需要完整回退时，在插件管理器中停用 `ds-bot-mobile-web` 并刷新即可。详细操作见[使用说明](docs/usage.md)。
 
 登录二维码和专用链接包含访问权限，请只发给自己。它们仅在打开本机面板时取得，关闭面板后从界面状态移除，不写进仓库或日志。链接使用宿主现有认证；“刷新入口”不会承诺撤销已经发出的链接。宿主重启后重新获取。
 

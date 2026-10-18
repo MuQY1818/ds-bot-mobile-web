@@ -2,7 +2,7 @@
 
 本插件安装在运行 DSH 和 DS Bot 的电脑上，为现有 Web 界面增加手机布局。手机通过浏览器访问这台电脑，无需在手机上安装 `.tgz` 文件。原有 Bot、群聊和会话继续由 DS Bot 管理。
 
-本文对应 v0.1.5。版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.5) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
+本文对应 v0.2.0。版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
 
 ## 已有DSH用户
 
@@ -16,9 +16,9 @@
 
 ### 2. 下载发布包并核对 SHA-256
 
-在电脑上打开 [v0.1.5 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.1.5)，从同一次 Release 的附件下载：
+在电脑上打开 [v0.2.0 发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.2.0)，从同一次 Release 的附件下载：
 
-- `dsh-mobile-layout-local-0.1.5.tgz`
+- `ds-bot-mobile-web-0.2.0.tgz`
 - `SHA256SUMS`
 
 将两份文件放在同一目录。后续版本使用对应文件名，不要混用不同版本的安装包和校验文件。GitHub 自动生成的源码压缩包不能替代这里的插件 `.tgz`。
@@ -42,7 +42,7 @@ macOS 和 Linux 应显示所需 `.tgz` 校验通过。若清单还列出其他�
 Windows：在 PowerShell 进入下载目录后运行：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\dsh-mobile-layout-local-0.1.5.tgz
+Get-FileHash -Algorithm SHA256 .\ds-bot-mobile-web-0.2.0.tgz
 Get-Content .\SHA256SUMS
 ```
 
@@ -52,7 +52,7 @@ Get-Content .\SHA256SUMS
 
 1. 在运行 DSH 的电脑上打开现有的官方插件管理器，使用它提供的本地包安装入口。
 2. 按管理器要求选择或填写刚下载的 `.tgz` 在这台电脑上的路径。路径来自电脑的下载目录，不是手机目录，也不是 GitHub 页面地址。手机浏览器不能指定电脑本机的 tgz 路径。
-3. 等待管理器检查包信息，确认名称为 `dsh-mobile-layout-local`，版本与你下载的 Release 一致。
+3. 等待管理器检查包信息，确认名称为 `ds-bot-mobile-web`，版本与你下载的 Release 一致。
 4. 如果管理器提供安装后再启用的选项，可以先保持停用，核对信息后再启用该 bundle。
 5. 等待安装和启用操作完成。仅把路径填进输入框，还没有安装成功。
 6. 刷新原来的 DSH Web 页面。手机宽度下会显示移动导航；电脑宽屏继续使用桌面布局。
@@ -128,12 +128,16 @@ python3 scripts/mock-bench.py
 
 页面内的“原版”按钮可以切回原布局，“手机布局”按钮可再次开启；选择保存在当前浏览器。DSH 插件设置页中的“手机布局”开关与页面内开关使用同一偏好。
 
-要停用整个插件，在 DSH 插件管理器里停用 `dsh-mobile-layout-local` bundle，再刷新页面。原 DS Bot、团队和会话继续保留。不要删除 DS Bot 或清空团队来回退一个布局插件。
+要停用整个插件，在 DSH 插件管理器里停用 `ds-bot-mobile-web` bundle，再刷新页面。原 DS Bot、团队和会话继续保留。不要删除 DS Bot 或清空团队来回退一个布局插件。
 
-升级前保留旧版 `.tgz` 和对应校验值，记录新旧版本。通过官方管理器停用新增 bundle，再安装新版；如果管理器要求先卸载旧版，只处理 `dsh-mobile-layout-local`，并先核对数据保留提示。回退时优先停用，再按当前管理器支持的流程重新安装保留的旧包。卸载也可能被冷静期的全锁检查阻挡；此时先停用 bundle 并刷新，等待策略允许后再继续。不要删除锁文件或全局关闭策略，维护者可审核具体依赖的精确例外条件。
+升级前保留旧版 `.tgz` 和对应校验值，记录新旧版本。通过官方管理器停用新增 bundle，再安装新版；如果管理器要求先卸载旧版，只处理 `ds-bot-mobile-web`，并先核对数据保留提示。回退时优先停用，再按当前管理器支持的流程重新安装保留的旧包。卸载也可能被冷静期的全锁检查阻挡；此时先停用 bundle 并刷新，等待策略允许后再继续。不要删除锁文件或全局关闭策略，维护者可审核具体依赖的精确例外条件。
 
 ## 当前状态
 
-v0.1.5 增加桌面内部协议、桌面转发请求和菜单尺寸修复；对应本地修复版已在实际 DSH Desktop 窗口验证启动、菜单和二维码。账户菜单、地址保存、复制反馈及窄屏检查的较早隔离证据来自 v0.1.4。先前 v0.1.3 已完成正式移动布局部署和手机登录；两者的测试范围分别记录在[验证说明](validation.md)。
+v0.2.0 增加桌面内部协议、桌面转发请求和菜单尺寸修复；对应本地修复版已在实际 DSH Desktop 窗口验证启动、菜单和二维码。账户菜单、地址保存、复制反馈及窄屏检查的较早隔离证据来自 v0.1.4。先前 v0.1.3 已完成正式移动布局部署和手机登录；两者的测试范围分别记录在[验证说明](validation.md)。
 
 Chromium 窄视口检查不能代替 iPhone Safari 的软键盘、安全区、锁屏和长时间后台测试。第三方插件在运行时注册的精灵形状也不一定与本插件单独打包的 registry 共享。具体边界见[验证范围](validation.md)、[架构与边界](architecture.md)及[故障排查](troubleshooting.md)。
+
+## 从旧包名迁移
+
+0.2.0 使用正式包名 `ds-bot-mobile-web`。先停用旧 `dsh-mobile-layout-local` bundle，再安装/启用新版并刷新。旧配置行身份与浏览器布局偏好有意保留，手机入口地址不会被重置。确认新包正常后，可单独移除已停用的旧包；无需重建团队或重新配对。
