@@ -129,11 +129,15 @@ function boot(paths){
 
 export function renderMobileStartup(html){
   if(html.includes('id="dsm-boot"'))return html
+  // The host's module scripts precede its viewport meta. Establish the same
+  // viewport first so a phone is not measured as the default 980px desktop.
+  const viewport=html.match(/<meta\b(?=[^>]*\bname\s*=\s*["']viewport["'])[^>]*>/i)?.[0]??''
+  if(viewport)html=html.replace(viewport,'')
   const paths=[...new Set([...html.matchAll(/(?:src|href)=["']((?:\.\/|\/)assets\/[\w.-]+-[\w-]{8,}\.(?:js|css|woff2))["']/g)].map(match=>'/'+match[1].replace(/^\.?\//,'')))]
   const shell='<div id="dsm-boot" role="status" aria-label="正在连接你的电脑"></div>'
   const style='<style>html[data-dsm-boot]::before{content:"DS Bot\\a" attr(data-dsm-boot-message);white-space:pre-line;position:fixed;inset:0;display:grid;place-content:center;gap:12px;padding:32px;box-sizing:border-box;z-index:2147483646;pointer-events:none;background:#fff;color:#555;font:18px/2 -apple-system,BlinkMacSystemFont,sans-serif;text-align:center}@media(prefers-color-scheme:dark){html[data-dsm-boot]::before{background:#141414;color:#ddd}}</style>'
   // createRoot replaces this temporary child on the first real render.
-  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/(<div\s+id=["']root["'][^>]*>)\s*(<\/div>)/i,(_,open,close)=>open+shell+close)
+  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/(<div\s+id=["']root["'][^>]*>)\s*(<\/div>)/i,(_,open,close)=>open+shell+close)
 }
 
 export function applyWebStartup(ctx){

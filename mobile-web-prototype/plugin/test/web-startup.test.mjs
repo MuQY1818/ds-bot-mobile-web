@@ -101,6 +101,13 @@ test('boot markup stays inside the replaceable root and does not serialize signe
   assert.equal(renderMobileStartup(result),result)
 })
 
+test('the original mobile viewport is applied before early boot measurements and remains unique',()=>{
+  const viewport='<meta name="viewport" content="width=device-width, initial-scale=1" />'
+  const result=renderMobileStartup('<html><head><script src="host.js"></script>'+viewport+'</head><body><div id="root"></div></body></html>')
+  assert.ok(result.indexOf(viewport)<result.indexOf('<script>'))
+  assert.equal(result.split(viewport).length,2)
+})
+
 test('official route serves an updatable worker and both route and index transform are disposed',()=>{
   const cleanup=[];let route,tap,removed=0
   applyWebStartup({effect(run){cleanup.push(run())},webServer:{tapIndex(fn){tap=fn;return()=>removed++},register(value){route=value;return()=>removed++}}})
