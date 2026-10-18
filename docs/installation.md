@@ -141,3 +141,16 @@ Chromium 窄视口检查不能代替 iPhone Safari 的软键盘、安全区、�
 ## 从旧包名迁移
 
 0.2.0 使用正式包名 `ds-bot-mobile-web`。先停用旧 `dsh-mobile-layout-local` bundle，再安装/启用新版并刷新。旧配置行身份与浏览器布局偏好有意保留，手机入口地址不会被重置。确认新包正常后，可单独移除已停用的旧包；无需重建团队或重新配对。
+
+### 已有配置行的检查
+
+如果升级后“手机访问”显示本机地址或入口未就绪，检查 profile 的用户配置覆盖。使用相同的行 ID，并将旧模块名改为新包名；`phoneUrl` 保留你原来的干净 HTTPS 地址：
+
+```yaml
+- id: mobile-layout-local
+  name: ds-bot-mobile-web
+  config:
+    phoneUrl: https://dsh.example.com/
+```
+
+这里的域名只是文档示例，请使用自己原先配置的地址。旧配置中如仍有 `name: dsh-mobile-layout-local`，不能仅依赖相同 `id` 自动继承配置。备份配置后，仅改正该模块名，再通过官方管理器重新加载对应插件；宿主要求重启时按提示操作。无需重建团队或改动 App Bridge 的状态目录。
