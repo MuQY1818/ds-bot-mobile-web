@@ -19,17 +19,21 @@ DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/de
 ## 界面预览
 
 <p align="center">
-  <img src="docs/images/conversations.png" width="230" alt="手机 Web 会话列表">
-  <img src="docs/images/chat.png" width="230" alt="手机 Web 单聊界面">
-  <img src="docs/images/group.png" width="230" alt="手机 Web 群聊成员署名">
+  <img src="docs/images/conversations.png" width="230" alt="实际 Mobile Web 会话列表，使用示例数据">
+  <img src="docs/images/chat.png" width="230" alt="实际 Mobile Web 单聊，使用示例数据和 mock 模型">
+  <img src="docs/images/group.png" width="230" alt="实际 Mobile Web 群聊，使用示例数据和 mock 模型">
 </p>
 
-*截图来自隔离 mock 宿主与虚构团队。它们是实际 Web 界面，不含私人会话；设计说明见 [docs/design.md](docs/design.md)。*
+*会话列表、单聊与群聊均来自隔离 DSH / DS Bot 宿主中实际运行的插件，使用示例数据与 mock 模型，未重绘界面。图片为 390px 响应式浏览器实测，不是 iPhone Safari 真机截图。界面和截图来源见[设计说明](docs/design.md)。*
 
 <details>
-  <summary>电脑端扫码登录入口</summary>
+  <summary>电脑端手机访问：实际部署截图</summary>
 
-![电脑端“手机访问”面板，使用示例域名和演示二维码](docs/images/phone-access.png)
+<p align="center">
+  <img src="docs/images/phone-access.png" width="500" alt="实际电脑端手机访问 Web 标签，登录二维码与地址已遮盖">
+</p>
+
+*实际部署中的“手机访问 → Web”。截图裁剪至弹窗，登录二维码与网络地址已遮盖；没有插入替代二维码。*
 
 </details>
 

@@ -19,17 +19,21 @@ DS Bot Mobile Web is a mobile interface plugin for [DeepSeek Harness](https://gi
 ## Preview
 
 <p align="center">
-  <img src="docs/images/conversations.png" width="230" alt="Mobile Web conversation list">
-  <img src="docs/images/chat.png" width="230" alt="Mobile Web direct conversation">
-  <img src="docs/images/group.png" width="230" alt="Mobile Web group author attribution">
+  <img src="docs/images/conversations.png" width="230" alt="Running Mobile Web conversation list with example data">
+  <img src="docs/images/chat.png" width="230" alt="Running Mobile Web direct chat with example data and a mock model">
+  <img src="docs/images/group.png" width="230" alt="Running Mobile Web group chat with example data and mock models">
 </p>
 
-*Actual Web UI, captured against an isolated mock host and synthetic team. See [design notes](docs/design.md).*
+*Conversation list, direct chat and group chat captured from the actual plugin running in an isolated DSH / DS Bot host, with example data and mock models. The interface was not redrawn. These are 390px responsive browser captures, not iPhone Safari screenshots. See [design and screenshot provenance](docs/design.md).*
 
 <details>
-  <summary>Desktop QR sign-in</summary>
+  <summary>Desktop phone access: deployed interface</summary>
 
-![Desktop phone-access panel with a demonstration QR](docs/images/phone-access.png)
+<p align="center">
+  <img src="docs/images/phone-access.png" width="500" alt="Running desktop Web access panel with its sign-in QR and address redacted">
+</p>
+
+*The deployed **Phone access → Web** dialog, cropped to the panel. The sign-in QR and network address are redacted; no replacement QR is inserted.*
 
 </details>
 
