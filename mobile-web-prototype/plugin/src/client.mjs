@@ -1,6 +1,7 @@
-import {createElement as h,useEffect,useState,useSyncExternalStore} from 'react'
+import {createElement as h,useEffect,useSyncExternalStore} from 'react'
 import {createMobileClient} from '../../../mobile-host-adapter/client.mjs'
 import {createMobileNavigation} from './controller.mjs'
+import {createLayoutPreference} from './preference.mjs'
 import css from './mobile.css'
 import {BotAvatar,RoomAvatar,botState} from '../../../ds-bot-upstream/ds-bot/src/client/mark.js'
 
@@ -12,9 +13,17 @@ function Mascot({item,items,size=48}){
   if(item.kind==='room')return h(RoomAvatar,{room:item,roster:{byId:Object.fromEntries(items.filter(x=>x.kind==='bot').map(x=>[x.id,x]))},size})
   return h(BotAvatar,{bot:item,size,state:botState(item.running,item.activity,item.alert),main:item.isMain,live:true,gaze:size>=60})
 }
-export function MobileChrome({controller}){
+export function MobileSettings({preference,view}){
+  const enabled=useSyncExternalStore(preference.subscribe,preference.snapshot,preference.snapshot)
+  if(view==='summary')return '窄屏使用手机会话布局，宽屏保持桌面布局。'
+  return h('div',null,
+    h('label',null,h('input',{type:'checkbox','aria-label':'启用手机布局',checked:enabled,onChange:event=>preference.set(event.target.checked)}),' 启用手机布局'),
+    h('p',null,'仅保存在当前浏览器。关闭后恢复原版布局，可随时重新开启。'))
+}
+export function MobileChrome({controller,preference}){
   const state=useSyncExternalStore(controller.subscribe,controller.snapshot,controller.snapshot)
-  const [enabled,setEnabled]=useState(true)
+  const enabled=useSyncExternalStore(preference.subscribe,preference.snapshot,preference.snapshot)
+  const setEnabled=value=>preference.set(value)
   useEffect(()=>{
     if(enabled){document.body.dataset.dsmEnabled='true';document.body.dataset.dsmPage=state.page}
     else{delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage}
@@ -55,6 +64,9 @@ export function MobileChrome({controller}){
   )
 }
 export function apply(ctx){
+  let storage
+  try{storage=window.localStorage}catch{}
+  const preference=createLayoutPreference(storage)
   const api=createMobileClient({appRoot:new URL('./',location.href).href})
   const controller=createMobileNavigation({api,workspace:ctx.uiWorkspace,sessions:ctx.sessions,connection:ctx.connection,history:window.history})
   ctx.effect(()=>{
@@ -63,7 +75,8 @@ export function apply(ctx){
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
     let timer,suspended=false
     const viewport=()=>{const v=window.visualViewport;document.documentElement.style.setProperty('--dsm-height',(v?.height??innerHeight)+'px');document.documentElement.style.setProperty('--dsm-top',(v?.offsetTop??0)+'px')}
-    const poll=()=>{clearInterval(timer);timer=setInterval(()=>{if(!document.hidden)void controller.refresh()},1500)}
+    const poll=()=>{clearInterval(timer);if(preference.snapshot())timer=setInterval(()=>{if(!document.hidden)void controller.refresh()},1500)}
+    const offPreference=preference.subscribe(()=>{poll();if(preference.snapshot())void controller.restore()})
     const recover=()=>{viewport();poll();void controller.restore()}
     const visible=()=>{if(document.hidden){suspended=true;clearInterval(timer)}else if(suspended){suspended=false;recover()}}
     const hide=()=>{suspended=true;clearInterval(timer)}
@@ -76,7 +89,7 @@ export function apply(ctx){
     document.addEventListener('visibilitychange',visible);document.addEventListener('freeze',hide);document.addEventListener('resume',resume)
     viewport();poll();void controller.refresh()
     return()=>{
-      clearInterval(timer);controller.close();style.remove();if(meta)meta.content=originalViewport
+      clearInterval(timer);offPreference();controller.close();style.remove();if(meta)meta.content=originalViewport
       window.visualViewport?.removeEventListener('resize',viewport);window.visualViewport?.removeEventListener('scroll',viewport)
       window.removeEventListener('resize',viewport);window.removeEventListener('pageshow',show);window.removeEventListener('pagehide',hide)
       window.removeEventListener('online',recover);window.removeEventListener('popstate',pop)
@@ -85,5 +98,6 @@ export function apply(ctx){
       delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage
     }
   })
-  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller})},MobileChrome))
+  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference})},MobileChrome))
+  ctx.slots.inject('plugins.item',()=>ctx.slots.register({name:'plugins.item',id:'mobile-layout-local-settings',order:140,label:'手机布局',inject:()=>({preference})},MobileSettings))
 }

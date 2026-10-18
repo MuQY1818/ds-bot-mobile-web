@@ -23,6 +23,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var client_exports = {};
 __export(client_exports, {
   MobileChrome: () => MobileChrome,
+  MobileSettings: () => MobileSettings,
   apply: () => apply,
   inject: () => inject
 });
@@ -250,6 +251,34 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
       offSessions();
       offConnection();
       listeners.clear();
+    }
+  };
+}
+
+// src/preference.mjs
+function createLayoutPreference(storage) {
+  const key = "dsh-mobile-layout-local.enabled";
+  const listeners = /* @__PURE__ */ new Set();
+  let enabled = true;
+  try {
+    enabled = storage?.getItem(key) !== "false";
+  } catch {
+  }
+  return {
+    snapshot: () => enabled,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    set(value) {
+      const next = Boolean(value);
+      if (enabled === next) return;
+      enabled = next;
+      try {
+        storage?.setItem(key, String(next));
+      } catch {
+      }
+      for (const listener of listeners) listener();
     }
   };
 }
@@ -1549,9 +1578,20 @@ function Mascot({ item, items, size = 48 }) {
   if (item.kind === "room") return (0, import_react2.createElement)(RoomAvatar, { room: item, roster: { byId: Object.fromEntries(items.filter((x) => x.kind === "bot").map((x) => [x.id, x])) }, size });
   return (0, import_react2.createElement)(BotAvatar, { bot: item, size, state: botState(item.running, item.activity, item.alert), main: item.isMain, live: true, gaze: size >= 60 });
 }
-function MobileChrome({ controller }) {
+function MobileSettings({ preference, view }) {
+  const enabled = (0, import_react2.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
+  if (view === "summary") return "窄屏使用手机会话布局，宽屏保持桌面布局。";
+  return (0, import_react2.createElement)(
+    "div",
+    null,
+    (0, import_react2.createElement)("label", null, (0, import_react2.createElement)("input", { type: "checkbox", "aria-label": "启用手机布局", checked: enabled, onChange: (event) => preference.set(event.target.checked) }), " 启用手机布局"),
+    (0, import_react2.createElement)("p", null, "仅保存在当前浏览器。关闭后恢复原版布局，可随时重新开启。")
+  );
+}
+function MobileChrome({ controller, preference }) {
   const state = (0, import_react2.useSyncExternalStore)(controller.subscribe, controller.snapshot, controller.snapshot);
-  const [enabled, setEnabled] = (0, import_react2.useState)(true);
+  const enabled = (0, import_react2.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
+  const setEnabled = (value) => preference.set(value);
   (0, import_react2.useEffect)(() => {
     if (enabled) {
       document.body.dataset.dsmEnabled = "true";
@@ -1620,6 +1660,12 @@ function MobileChrome({ controller }) {
   );
 }
 function apply(ctx) {
+  let storage;
+  try {
+    storage = window.localStorage;
+  } catch {
+  }
+  const preference = createLayoutPreference(storage);
   const api = createMobileClient({ appRoot: new URL("./", location.href).href });
   const controller = createMobileNavigation({ api, workspace: ctx.uiWorkspace, sessions: ctx.sessions, connection: ctx.connection, history: window.history });
   ctx.effect(() => {
@@ -1637,10 +1683,14 @@ function apply(ctx) {
     };
     const poll = () => {
       clearInterval(timer);
-      timer = setInterval(() => {
+      if (preference.snapshot()) timer = setInterval(() => {
         if (!document.hidden) void controller.refresh();
       }, 1500);
     };
+    const offPreference = preference.subscribe(() => {
+      poll();
+      if (preference.snapshot()) void controller.restore();
+    });
     const recover = () => {
       viewport();
       poll();
@@ -1687,6 +1737,7 @@ function apply(ctx) {
     void controller.refresh();
     return () => {
       clearInterval(timer);
+      offPreference();
       controller.close();
       style.remove();
       if (meta) meta.content = originalViewport;
@@ -1706,7 +1757,8 @@ function apply(ctx) {
       delete document.body.dataset.dsmPage;
     };
   });
-  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller }) }, MobileChrome));
+  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference }) }, MobileChrome));
+  ctx.slots.inject("plugins.item", () => ctx.slots.register({ name: "plugins.item", id: "mobile-layout-local-settings", order: 140, label: "手机布局", inject: () => ({ preference }) }, MobileSettings));
 }
 
 return Object.defineProperty({...module.exports},Symbol.toStringTag,{value:'Module'});

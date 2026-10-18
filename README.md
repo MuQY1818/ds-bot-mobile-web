@@ -6,7 +6,7 @@
 
 ## 目录
 
-- `mobile-web-prototype/plugin/`：实际移动布局插件 `dsh-mobile-layout-local`，版本0.1.2。
+- `mobile-web-prototype/plugin/`：实际移动布局插件 `dsh-mobile-layout-local`，版本0.1.3。
 - `mobile-host-adapter/`：公开宿主协议适配、可选会话投影封装与隔离契约测试。
 - `ds-bot-upstream/`：固定提交的上游 Git submodule，供精灵组件构建和真实上游通道测试使用；不会作为另一个运行时安装。
 - `docs/`：架构、验证边界和版本记录。
@@ -33,7 +33,7 @@ npm run pack
 
 用现有DSH公开插件管理器加装构建出的 `dsh-mobile-layout-local` bundle，刷新现有Web入口。不要把它作为另一套DS Bot安装。手机列表通过公开团队接口解析当前会话，再用 `uiWorkspace.openSession`导航；实际发送继续走原版composer的 `/api/session/prompt`。
 
-首次安装可先保持新增 bundle 停用，审核后再启用；回滚时停用新增 bundle 并刷新页面。布局中的“原版”按钮也能撤去当前页的手机样式。继续使用现有认证和私有网络入口，不关闭 Host/Origin 检查，也不公开宿主。
+首次安装可先保持新增 bundle 停用，审核后再启用；回滚时停用新增 bundle 并刷新页面。DSH 插件设置中的「手机布局」提供公开开关，与布局中的“原版”按钮同步；选择保存在当前浏览器。0.1.3 已在独立 DSH 0.2.1-rc.2 mock 页面验证公开设置、持久化、启用/禁用清理和宽窄布局，正式部署与 Safari 真机仍另行验收。继续使用现有认证和私有网络入口，不关闭 Host/Origin 检查，也不公开宿主。
 
 ## 精灵与许可
 
