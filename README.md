@@ -14,7 +14,7 @@
 
 DS Bot Mobile Web 是面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 的移动界面插件。它在现有会话上提供适合手机的导航、团队视图和扫码登录入口，共用电脑上的 Bot、群聊与消息历史。
 
-> **预览版本**：此源码为 `0.4.1` 发布候选，尚未公开发布；目标组合为 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`。插件安装在电脑上，手机使用浏览器访问。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
+> **当前版本 `0.4.1`**：面向 DSH `0.2.1-rc.2` 与 DS Bot `0.1.7`，已通过正式管理器安装到实际宿主。插件安装在电脑上，手机使用浏览器访问；Safari 真机网络场景的验证边界见[开发状态](docs/status.md)。原生客户端见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 

@@ -14,7 +14,7 @@
 
 DS Bot Mobile Web is a mobile interface plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) and [DS Bot](https://github.com/Fei2411/DeepSeek-Bot). It adds phone navigation, a team view and QR sign-in to your existing installation, sharing the Bots, group chats and message history on your computer.
 
-> **Preview version**: this source is the `0.4.1` release candidate and has not been publicly released. It targets DSH `0.2.1-rc.2` with DS Bot `0.1.7`. Install the plugin on the computer and access it through a phone browser. For a native client, see [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
+> **Current version `0.4.1`**: targets DSH `0.2.1-rc.2` with DS Bot `0.1.7` and has been installed on an actual host through the official plugin manager. Install the plugin on the computer and access it through a phone browser. See [development status](docs/status.md) for the limits of Safari device and network validation. For a native client, see [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
 
 ## Preview
 

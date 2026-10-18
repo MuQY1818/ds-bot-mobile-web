@@ -2,7 +2,7 @@
 
 本插件安装在运行 DSH 和 DS Bot 的电脑上，为现有 Web 界面增加手机布局。手机通过浏览器访问这台电脑，无需在手机上安装 `.tgz` 文件。原有 Bot、群聊和会话继续由 DS Bot 管理。
 
-本文对应 v0.4.1 发布候选，尚未公开发布。以下下载步骤在对应版本发布后使用，版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.1) 为准。先前 v0.1.3 的移动布局已在正式 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合部署，并获得手机登录反馈；新入口的验证范围见[验证说明](validation.md)。
+本文对应 v0.4.1，版本和附件以 [Release](https://github.com/MuQY1818/ds-bot-mobile-web/releases/tag/v0.4.1) 为准。此版本已在实际 DSH 0.2.1-rc.2 与 DS Bot 0.1.7 组合中通过正式管理器安装；先前 v0.1.3 的移动布局获得过手机登录反馈。安装、隔离性能测试与 Safari 真机测试的范围见[验证说明](validation.md)和[网络验证记录](network-performance.md)。
 
 ## 已有DSH用户
 
