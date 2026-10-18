@@ -14,7 +14,7 @@
 
 ## 获取与构建
 
-需要 Git、Node.js24+及npm。初次克隆必须包含固定上游：
+需要 Git、Node.js24+ 和 npm。初次克隆时需一并获取固定版本的上游源码：
 
 ```sh
 git clone --recurse-submodules <本仓库地址>
@@ -33,7 +33,7 @@ npm run pack
 
 用现有DSH公开插件管理器加装构建出的 `dsh-mobile-layout-local` bundle，刷新现有Web入口。不要把它作为另一套DS Bot安装。手机列表通过公开团队接口解析当前会话，再用 `uiWorkspace.openSession`导航；实际发送继续走原版composer的 `/api/session/prompt`。
 
-首次安装可先停用安装，审核后启用；回滚仅停用新增bundle，并刷新页面。布局中的“原版”按钮也可撤去当前页的手机样式。保留现有认证与私有网络访问方式，不关闭Host/Origin检查，不公开宿主。
+首次安装可先保持新增 bundle 停用，审核后再启用；回滚时停用新增 bundle 并刷新页面。布局中的“原版”按钮也能撤去当前页的手机样式。继续使用现有认证和私有网络入口，不关闭 Host/Origin 检查，也不公开宿主。
 
 ## 精灵与许可
 
