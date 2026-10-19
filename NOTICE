@@ -12,6 +12,10 @@ character graphics and their imported modules. The build changes only the SVG
 mask namespace from bt-mark- to dsm-mark- to avoid same-document collisions.
 Upstream sources are not patched; DSH and DS Bot remain independent dependencies.
 
+Mobile stylesheet selector compilation adapts the installCompiledStyles approach
+documented in ds-bot/src/client/styles.js, with an independent owned style element
+and stylesheet-only discovery/lifecycle handling.
+
 The mobile client also bundles qrcode 1.5.4 and dijkstrajs for local QR encoding.
 Their MIT copyright and license texts are included in
 mobile-web-prototype/plugin/NOTICE and travel with the installable package.

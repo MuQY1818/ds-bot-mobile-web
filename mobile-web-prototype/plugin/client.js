@@ -2628,6 +2628,77 @@ function createMobileViewport({ window: window2, document: document2, enabled = 
   };
 }
 
+// src/mobile-styles.mjs
+var FRAGMENT = /\[class\*="(_[\w-]+)"\]/g;
+var CLASS = /\.((?:\\.|[\w-])+)/g;
+function compileMobileStyles(text, names) {
+  const matches = /* @__PURE__ */ new Map();
+  return text.replace(FRAGMENT, (original, fragment) => {
+    if (!matches.has(fragment)) {
+      const exact = [...names].filter((name) => name.includes(fragment)).sort().map((name) => `.${name}`);
+      matches.set(fragment, exact.length ? `:is(${exact.join(",")})` : original);
+    }
+    return matches.get(fragment);
+  });
+}
+function installMobileStyles({ window: window2, document: document2, text }) {
+  const style = document2.createElement("style");
+  style.dataset.mobileLayout = "local";
+  let closed = false, timer = null;
+  const derived = (node) => node === style || node?.dataset?.dshBot !== void 0;
+  const stylesheet = (node) => !derived(node) && (node?.localName === "style" || node?.localName === "link");
+  const render = () => {
+    timer = null;
+    if (closed) return;
+    const names = /* @__PURE__ */ new Set(), visited = /* @__PURE__ */ new Set();
+    const rules = (list) => {
+      for (const rule of list) {
+        if (rule.selectorText) for (const match of rule.selectorText.matchAll(CLASS)) names.add(match[1]);
+        if (rule.cssRules) rules(rule.cssRules);
+        if (rule.styleSheet) sheet(rule.styleSheet);
+      }
+    };
+    const sheet = (value) => {
+      if (visited.has(value) || derived(value.ownerNode) || value.disabled) return;
+      visited.add(value);
+      try {
+        rules(value.cssRules ?? []);
+      } catch {
+      }
+    };
+    for (const value of document2.styleSheets) sheet(value);
+    const next = compileMobileStyles(text, names);
+    if (style.textContent !== next) style.textContent = next;
+  };
+  const schedule = () => {
+    if (closed) return;
+    if (timer !== null) window2.clearTimeout(timer);
+    timer = window2.setTimeout(render, 80);
+  };
+  render();
+  document2.head.append(style);
+  const observer = new window2.MutationObserver((records) => {
+    if (records.some((record) => {
+      if (record.target === document2.head) return [...record.addedNodes, ...record.removedNodes].some(stylesheet);
+      const node = record.target.nodeType === 3 ? record.target.parentElement : record.target;
+      return node?.localName === "style" && stylesheet(node);
+    })) schedule();
+  });
+  observer.observe(document2.head, { childList: true, subtree: true, characterData: true });
+  const load = (event) => {
+    if (event.target?.localName === "link" && stylesheet(event.target)) schedule();
+  };
+  document2.addEventListener("load", load, true);
+  return { style, close() {
+    if (closed) return;
+    closed = true;
+    if (timer !== null) window2.clearTimeout(timer);
+    observer.disconnect();
+    document2.removeEventListener("load", load, true);
+    style.remove();
+  } };
+}
+
 // src/mobile-theme.mjs
 function createMobileTheme({ theme, subscribe, window: window2, document: document2, enabled = () => true }) {
   const root = document2.documentElement, reduced = window2.matchMedia("(prefers-reduced-motion: reduce)");
@@ -4683,10 +4754,7 @@ function apply(ctx) {
     phone.dispose();
   });
   ctx.effect(() => {
-    const style = document.createElement("style");
-    style.dataset.mobileLayout = "local";
-    style.textContent = mobile_default + "\n" + mascotCss + "\n" + phone_default;
-    document.head.append(style);
+    const styles = installMobileStyles({ window, document, text: mobile_default + "\n" + mascotCss + "\n" + phone_default });
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";
     viewport = createMobileViewport({ window, document, enabled: keyboardActive });
@@ -4770,7 +4838,7 @@ function apply(ctx) {
       mobileMedia.removeEventListener("change", mediaChange);
       offPreference();
       controller.close();
-      style.remove();
+      styles.close();
       if (meta) meta.content = originalViewport;
       viewport.close();
       viewport = void 0;

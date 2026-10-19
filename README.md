@@ -50,7 +50,7 @@ DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai
 | **有界缓存与启动反馈** | 短期保留最近会话引用，缓存符合条件的静态代码；提供独立加载层和 iPhone 桌面启动图。 |
 | **持久日夜外观** | 主页太阳／月亮按钮复用宿主偏好，支持主题过渡、减少动态效果，以及独立于原 Bot 样式的精灵配色。 |
 
-**当前发布：0.4.6。** 当前适配组合为 DSH `0.2.1-rc.2` / DS Bot `0.1.7`。宿主交互能力取决于该组合；不同浏览器的键盘、后台恢复与网络切换仍有差异。详见[版本状态](docs/status.md)、[0.4.6 说明](docs/releases/v0.4.6.md)和[验证记录](docs/validation.md)。
+**当前发布：0.4.7。** 当前适配组合为 DSH `0.2.1-rc.2` / DS Bot `0.1.7`。宿主交互能力取决于该组合；不同浏览器的键盘、后台恢复与网络切换仍有差异。详见[版本状态](docs/status.md)、[0.4.7 说明](docs/releases/v0.4.7.md)和[验证记录](docs/validation.md)。
 
 ## 快速开始
 
@@ -58,7 +58,7 @@ DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai
 
 前提是电脑上的 DSH 和 DS Bot 已正常运行，原团队可以使用。
 
-从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest) 下载插件 `.tgz`；当前文件为 **`ds-bot-mobile-web-0.4.6.tgz`**。在现有 DSH 插件管理器中安装、启用，再刷新页面；宿主提示重启时按提示处理。
+从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest) 下载插件 `.tgz`；当前文件为 **`ds-bot-mobile-web-0.4.7.tgz`**。在现有 DSH 插件管理器中安装、启用，再刷新页面；宿主提示重启时按提示处理。
 
 GitHub 自动生成的 “Source code” 压缩包用于开发，手机不需要下载或解压插件包。
 
@@ -77,6 +77,8 @@ GitHub 自动生成的 “Source code” 压缩包用于开发，手机不需要
 > Web 登录二维码与 App 配对二维码用途不同，不能互换。登录二维码和完整登录链接携带访问权限，只给自己的设备。
 
 安装细节、升级、回退与旧包名迁移见[安装指南](docs/installation.md)。连接超时、认证失败和历史加载问题见[故障排查](docs/troubleshooting.md)。
+
+`0.4.7` 另优化长会话发生更新时的样式匹配，减少移动布局的重算开销。测量条件与范围见[性能记录](docs/network-performance.md#047长会话样式计算)。
 
 ## 缓存与连接如何工作
 

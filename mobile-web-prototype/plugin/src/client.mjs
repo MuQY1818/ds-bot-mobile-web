@@ -5,6 +5,7 @@ import {createLayoutPreference} from './preference.mjs'
 import {createRefreshLoop} from './refresh-loop.mjs'
 import {createComposerKeyboard} from './composer-keyboard.mjs'
 import {createMobileViewport} from './mobile-viewport.mjs'
+import {installMobileStyles} from './mobile-styles.mjs'
 import {createMobileTheme} from './mobile-theme.mjs'
 import {clearMobileAssetCache} from '../web-startup.mjs'
 import {createPhoneController} from './phone-controller.mjs'
@@ -107,7 +108,7 @@ export function apply(ctx){
   const keyboardDismiss=()=>viewport?.beginDismiss()
   ctx.effect(()=>()=>{appearance.close();access.dispose();phone.dispose()})
   ctx.effect(()=>{
-    const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+mascotCss+'\n'+phoneCss;document.head.append(style)
+    const styles=installMobileStyles({window,document,text:css+'\n'+mascotCss+'\n'+phoneCss})
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
     viewport=createMobileViewport({window,document,enabled:keyboardActive})
@@ -130,7 +131,7 @@ export function apply(ctx){
     document.addEventListener('visibilitychange',visible);document.addEventListener('freeze',hide);document.addEventListener('resume',resume)
     cacheMode();poll();if(mobileActive())void controller.refresh()
     return()=>{
-      polling.close();clearTimeout(cacheRelease);mobileMedia.removeEventListener('change',mediaChange);offPreference();controller.close();style.remove();if(meta)meta.content=originalViewport
+      polling.close();clearTimeout(cacheRelease);mobileMedia.removeEventListener('change',mediaChange);offPreference();controller.close();styles.close();if(meta)meta.content=originalViewport
       viewport.close();viewport=undefined
       window.removeEventListener('pageshow',show);window.removeEventListener('pagehide',hide)
       window.removeEventListener('online',recover);window.removeEventListener('popstate',pop)

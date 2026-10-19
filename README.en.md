@@ -50,7 +50,7 @@ This user-provided capture shows the actual **Web** tab. For public documentatio
 | **Bounded caching and launch feedback** | Retain recent conversation references briefly, cache eligible static code, and show an independent loader plus iPhone launch images. |
 | **Persistent light and dark themes** | Reuse the host preference through a sun/moon toggle, with transitions, reduced-motion support and character colors independent of the original Bot styles. |
 
-**Current release: 0.4.6.** The current compatibility target is DSH `0.2.1-rc.2` / DS Bot `0.1.7`. Chat capabilities depend on that host combination; keyboard behavior, background recovery and network changes vary between browsers. See [status](docs/status.md), the [0.4.6 notes](docs/releases/v0.4.6.md) and [validation](docs/validation.md).
+**Current release: 0.4.7.** The current compatibility target is DSH `0.2.1-rc.2` / DS Bot `0.1.7`. Chat capabilities depend on that host combination; keyboard behavior, background recovery and network changes vary between browsers. See [status](docs/status.md), the [0.4.7 notes](docs/releases/v0.4.7.md) and [validation](docs/validation.md).
 
 ## Quick start
 
@@ -58,7 +58,7 @@ This user-provided capture shows the actual **Web** tab. For public documentatio
 
 Start with a working DSH and DS Bot installation where your existing team is usable.
 
-Download the plugin `.tgz` from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest). The current asset is **`ds-bot-mobile-web-0.4.6.tgz`**. Install and enable it in your existing DSH plugin manager, then refresh. Restart the same host when prompted.
+Download the plugin `.tgz` from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest). The current asset is **`ds-bot-mobile-web-0.4.7.tgz`**. Install and enable it in your existing DSH plugin manager, then refresh. Restart the same host when prompted.
 
 GitHub's automatically generated “Source code” archives are for development. The phone does not download or unpack the plugin.
 
@@ -77,6 +77,8 @@ Open an existing Bot or group to continue using your team. Bookmark the ordinary
 > Browser sign-in and native App pairing use different QR codes. Sign-in QR codes and full sign-in links carry access credentials; share them only with your own devices.
 
 The [installation guide](docs/installation.md) covers updates, rollback and migration from the old package name. For timeouts, authentication or slow history, use [troubleshooting](docs/troubleshooting.md).
+
+`0.4.7` also reduces mobile stylesheet matching work when long conversations update. See the [performance record](docs/network-performance.md#047长会话样式计算) for measurement conditions and limits.
 
 ## Caching and connectivity
 

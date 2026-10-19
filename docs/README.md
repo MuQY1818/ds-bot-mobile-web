@@ -1,6 +1,6 @@
 # DS Bot Mobile Web 文档
 
-在手机浏览器中使用电脑上已有的 DS Bot 团队。当前发布版本为 **0.4.6**，适配 DSH `0.2.1-rc.2` / DS Bot `0.1.7`。
+在手机浏览器中使用电脑上已有的 DS Bot 团队。当前发布版本为 **0.4.7**，适配 DSH `0.2.1-rc.2` / DS Bot `0.1.7`。
 
 [项目首页](../README.md) · [English overview](../README.en.md) · [下载插件](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest) · [更新记录](../CHANGELOG.md)
 
@@ -31,7 +31,7 @@
 | [验证记录](validation.md) | 按版本区分自动检查、隔离浏览器、正式安装和真实设备证据。 |
 | [性能记录](network-performance.md) | 缓存、请求合并、启动测量与观察边界。 |
 | [设计说明](design.md) · [图片来源](images/README.md) | 交互设计、截图版本、示例数据与隐私处理。 |
-| [0.4.6 说明](releases/v0.4.6.md) · [CHANGELOG](../CHANGELOG.md) | 当前主题和精灵修复及完整版本历史。 |
+| [0.4.7 说明](releases/v0.4.7.md) · [CHANGELOG](../CHANGELOG.md) | 当前长会话样式优化及完整版本历史。 |
 
 截图展示对应版本的实际界面，不能代替全部浏览器和设备验收。性能数据保留测量条件，不作为所有网络的延迟承诺。
 

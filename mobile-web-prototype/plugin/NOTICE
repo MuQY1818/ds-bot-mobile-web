@@ -12,6 +12,10 @@ to dsm-mark- to avoid collisions with the concurrently mounted original UI.
 Motion CSS is provided by the existing DS Bot plugin. No upstream files are
 modified. Mobile navigation, status-data mapping and layout remain separate.
 
+Mobile stylesheet selector compilation follows the approach documented in
+ds-bot/src/client/styles.js (installCompiledStyles), adapted to this plugin's
+own style element, stylesheet-only discovery and unload lifecycle.
+
 This package also bundles the QR encoder from qrcode 1.5.4
 (https://github.com/soldair/node-qrcode) and dijkstrajs
 (https://github.com/andrewhayward/dijkstra), both under the MIT license.
