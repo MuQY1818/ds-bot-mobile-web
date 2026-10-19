@@ -5,7 +5,7 @@ export function installMobileBrowserAppearance(window){
   const mobile=window.matchMedia('(max-width:767px), (max-width:1024px) and (max-height:500px)')
   const system=window.matchMedia('(prefers-color-scheme: dark)')
   const originals=new Map(),styles=new Map()
-  let body,closed=false,active=false
+  let body,statusBar,closed=false,active=false
   const remember=node=>{
     if(!originals.has(node))originals.set(node,{content:node.getAttribute('content'),media:node.getAttribute('media')})
     return node
@@ -19,6 +19,7 @@ export function installMobileBrowserAppearance(window){
     for(const node of existing){remember(node);if(node.content!==content)node.content=content;node.removeAttribute('media')}
   }
   const restore=()=>{
+    statusBar?.remove();statusBar=undefined
     for(const [node,original]of originals){
       if(original===null){node.remove();continue}
       for(const name of ['content','media']){
@@ -49,6 +50,18 @@ export function installMobileBrowserAppearance(window){
     // paints an opaque strip from the system appearance instead, which is why a
     // dark app on a light phone showed a white bar.
     meta('apple-mobile-web-app-status-bar-style','black-translucent')
+    // iOS samples fixed elements at the document edge before the app mounts.
+    // Keep this solid strip directly under the body, outside the app's overlay
+    // stacking context, so its scroll-edge blur does not cover header content.
+    if(window.navigator?.standalone===true&&document.body){
+      if(!statusBar||statusBar.parentElement!==document.body){
+        statusBar?.remove();statusBar=document.createElement('div')
+        statusBar.setAttribute('data-dsm-status-bar','');statusBar.setAttribute('aria-hidden','true')
+        statusBar.style.cssText='position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);pointer-events:none;z-index:2147483646'
+        document.body.append(statusBar)
+      }
+      statusBar.style.backgroundColor=color
+    }
     for(const [name,value]of [['background-color',color],['color-scheme',scheme]]){
       if(!styles.has(name))styles.set(name,{value:root.style.getPropertyValue(name),priority:root.style.getPropertyPriority(name)})
       if(root.style.getPropertyValue(name)!==value)root.style.setProperty(name,value)

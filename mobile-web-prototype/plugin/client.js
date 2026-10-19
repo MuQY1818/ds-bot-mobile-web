@@ -2840,7 +2840,7 @@ function installMobileBrowserAppearance(window2) {
   const mobile = window2.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
   const system = window2.matchMedia("(prefers-color-scheme: dark)");
   const originals = /* @__PURE__ */ new Map(), styles = /* @__PURE__ */ new Map();
-  let body, closed = false, active = false;
+  let body, statusBar, closed = false, active = false;
   const remember = (node) => {
     if (!originals.has(node)) originals.set(node, { content: node.getAttribute("content"), media: node.getAttribute("media") });
     return node;
@@ -2862,6 +2862,8 @@ function installMobileBrowserAppearance(window2) {
     }
   };
   const restore = () => {
+    statusBar?.remove();
+    statusBar = void 0;
     for (const [node, original] of originals) {
       if (original === null) {
         node.remove();
@@ -2899,6 +2901,17 @@ function installMobileBrowserAppearance(window2) {
     meta("color-scheme", scheme);
     meta("apple-mobile-web-app-capable", "yes");
     meta("apple-mobile-web-app-status-bar-style", "black-translucent");
+    if (window2.navigator?.standalone === true && document2.body) {
+      if (!statusBar || statusBar.parentElement !== document2.body) {
+        statusBar?.remove();
+        statusBar = document2.createElement("div");
+        statusBar.setAttribute("data-dsm-status-bar", "");
+        statusBar.setAttribute("aria-hidden", "true");
+        statusBar.style.cssText = "position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);pointer-events:none;z-index:2147483646";
+        document2.body.append(statusBar);
+      }
+      statusBar.style.backgroundColor = color;
+    }
     for (const [name, value] of [["background-color", color], ["color-scheme", scheme]]) {
       if (!styles.has(name)) styles.set(name, { value: root.style.getPropertyValue(name), priority: root.style.getPropertyPriority(name) });
       if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
@@ -3381,7 +3394,7 @@ function MobileAccessHost({ access }) {
 var phone_default = '.dsm-phone-panel{font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:var(--bt-ink,#171717)}.dsm-phone-panel *{box-sizing:border-box}.dsm-phone-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--bt-ink-2,#666);min-height:32px}.dsm-phone-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}.dsm-phone-status[data-ready=true]>span{background:var(--bt-green,#00865b)}.dsm-phone-ready{text-align:center}.dsm-phone-qr{display:block;width:204px;max-width:100%;height:auto;margin:12px auto 10px;border-radius:8px;background:#fff}.dsm-phone-scan{margin:10px 0 4px;font-size:14px}.dsm-phone-address{margin:0 0 18px;font-size:12px;color:var(--bt-ink-2,#666);overflow-wrap:anywhere}.dsm-phone-panel button,.dsm-phone-panel input,.dsm-phone-panel textarea{font:inherit}.dsm-phone-primary,.dsm-phone-config button{min-height:40px;border:0;border-radius:10px;padding:9px 16px;background:var(--bt-ink,#171717);color:var(--bt-main,#fff);cursor:pointer}.dsm-phone-primary{width:100%;font-size:14px!important;font-weight:550}.dsm-phone-actions{display:flex;justify-content:center;gap:20px;margin-top:8px}.dsm-phone-actions button{min-height:36px;border:0;padding:4px;background:transparent;color:var(--bt-ink-2,#666);font-size:12px;cursor:pointer}.dsm-phone-actions button:hover{text-decoration:underline;text-underline-offset:3px}.dsm-phone-manual{margin-top:8px;text-align:left;font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-manual summary{cursor:pointer;text-align:center;min-height:32px;padding:6px 0}.dsm-phone-manual textarea{display:block;width:100%;min-height:88px;margin-top:8px;border:1px solid var(--bt-line,#ddd);border-radius:8px;background:var(--bt-card,#fff);color:inherit;padding:8px;overflow-wrap:anywhere;resize:vertical}.dsm-phone-help{margin:18px 0;color:var(--bt-ink-2,#666)}.dsm-phone-config{margin-top:16px;padding-top:16px;border-top:1px solid var(--bt-line,#ddd)}.dsm-phone-config label{display:block;font-weight:550;font-size:13px}.dsm-phone-config input{width:100%;min-height:44px;padding:9px 11px;margin-top:8px;border:1px solid var(--bt-line,#ddd);border-radius:10px;color:inherit;background:var(--bt-card,#fff)}.dsm-phone-config p{font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-config button:disabled{opacity:.5;cursor:default}.dsm-phone-error{margin:14px 0 0;color:var(--bt-danger,#b42318)}.dsm-phone-note{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--bt-line,#ddd);font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-panel :is(button,input,textarea,summary):focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}@media(max-width:540px){.dsm-phone-panel input{font-size:16px}.dsm-phone-panel button{min-height:44px}}\n';
 
 // src/mobile.css
-var mobile_default = `.dsm-chrome,.dsm-return,.dsm-status-bar{display:none}
+var mobile_default = `.dsm-chrome,.dsm-return{display:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){
 /* Keep touch scrolling inside the visible mobile surface, including at its edges. */
 html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavior:none}
@@ -3390,7 +3403,6 @@ html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavio
    existing visual-viewport helper continues to follow the keyboard. */
 @media(display-mode:standalone),(display-mode:fullscreen){
 html:has(>body[data-dsm-enabled]){height:100lvh}
-.dsm-status-bar{display:block;position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--dsm-bg);pointer-events:none;z-index:2147483646}
 }
 body[data-dsm-enabled]{background:var(--dsm-bg)}
 body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(56px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;top:0;left:0;width:100%;height:var(--dsm-height,100dvh);overflow:hidden;overscroll-behavior:none}
@@ -4803,7 +4815,6 @@ function MobileChrome({ controller, preference, appearance }) {
   return (0, import_react4.createElement)(
     "div",
     { className: "dsm-chrome" },
-    (0, import_react4.createElement)("div", { className: "dsm-status-bar", "aria-hidden": true }),
     (0, import_react4.createElement)(
       "header",
       { className: "dsm-bar" },

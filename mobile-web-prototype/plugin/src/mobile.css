@@ -1,4 +1,4 @@
-.dsm-chrome,.dsm-return,.dsm-status-bar{display:none}
+.dsm-chrome,.dsm-return{display:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){
 /* Keep touch scrolling inside the visible mobile surface, including at its edges. */
 html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavior:none}
@@ -7,7 +7,6 @@ html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavio
    existing visual-viewport helper continues to follow the keyboard. */
 @media(display-mode:standalone),(display-mode:fullscreen){
 html:has(>body[data-dsm-enabled]){height:100lvh}
-.dsm-status-bar{display:block;position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--dsm-bg);pointer-events:none;z-index:2147483646}
 }
 body[data-dsm-enabled]{background:var(--dsm-bg)}
 body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(56px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;top:0;left:0;width:100%;height:var(--dsm-height,100dvh);overflow:hidden;overscroll-behavior:none}

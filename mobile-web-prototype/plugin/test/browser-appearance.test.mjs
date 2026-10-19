@@ -3,14 +3,14 @@ import assert from 'node:assert/strict'
 import {installMobileBrowserAppearance} from '../web-appearance.mjs'
 
 function fixture(){
-  const nodes=[],observers=[],events=new Map(),properties=new Map()
+  const nodes=[],bodyNodes=[],observers=[],events=new Map(),properties=new Map()
   const media=()=>({matches:false,addEventListener(_,fn){this.listener=fn},removeEventListener(){delete this.listener}})
   const mobile=media(),system=media();mobile.matches=true
   const style={getPropertyValue:key=>properties.get(key)?.[0]??'',getPropertyPriority:key=>properties.get(key)?.[1]??'',setProperty(key,value,priority=''){properties.set(key,[value,priority])},removeProperty:key=>properties.delete(key)}
-  const root={dataset:{},style},body={dark:false,hasAttribute(){return this.dark}}
+  const root={dataset:{},style},body={dark:false,hasAttribute(){return this.dark},append(node){bodyNodes.push(node);node.parentElement=this}}
   const document={documentElement:root,body,createElement(){
     const attributes=new Map()
-    return {dataset:{},get content(){return attributes.get('content')??''},set content(value){attributes.set('content',value)},getAttribute:key=>attributes.get(key)??null,setAttribute(key,value){attributes.set(key,value)},removeAttribute:key=>attributes.delete(key),remove(){nodes.splice(nodes.indexOf(this),1)}}
+    return {dataset:{},style:{},get content(){return attributes.get('content')??''},set content(value){attributes.set('content',value)},getAttribute:key=>attributes.get(key)??null,setAttribute(key,value){attributes.set(key,value)},removeAttribute:key=>attributes.delete(key),remove(){for(const list of [nodes,bodyNodes]){const index=list.indexOf(this);if(index>=0)list.splice(index,1)}this.parentElement=null}}
   },head:{querySelectorAll(selector){const name=selector.match(/name="([^"]+)"/)[1];return nodes.filter(node=>node.name===name)},append:node=>nodes.push(node)}}
   let enabled=true
   const window={document,localStorage:{getItem(){return enabled?null:'false'}},matchMedia:query=>query.includes('max-width')?mobile:system,
@@ -18,8 +18,32 @@ function fixture(){
     addEventListener(type,fn){events.set(type,fn)},removeEventListener(type){events.delete(type)},
   }
   const meta=(name,value)=>{const node=document.createElement('meta');node.name=name;node.content=value;document.head.append(node);return node}
-  return {root,body,window,mobile,system,nodes,events,observers,meta,setEnabled:value=>{enabled=value},value:name=>nodes.find(node=>node.name===name)?.content,publish(){for(const observer of observers)if(!observer.disconnected)observer.fn()}}
+  return {root,body,bodyNodes,window,mobile,system,nodes,events,observers,meta,setEnabled:value=>{enabled=value},value:name=>nodes.find(node=>node.name===name)?.content,publish(){for(const observer of observers)if(!observer.disconnected)observer.fn()}}
 }
+
+test('Home Screen status background exists before the app mounts, follows themes and cleans up',()=>{
+  const f=fixture();f.window.navigator={standalone:true};f.window.document.body=null
+  const owner=installMobileBrowserAppearance(f.window)
+  assert.equal(f.bodyNodes.length,0)
+  f.window.document.body=f.body;f.publish()
+  assert.equal(f.bodyNodes.length,1)
+  const background=f.bodyNodes[0]
+  assert.equal(background.parentElement,f.body)
+  assert.equal(background.getAttribute('aria-hidden'),'true')
+  assert.equal(background.style.backgroundColor,'#ffffff')
+  f.root.dataset.dsThemeSource='dark';f.publish()
+  assert.equal(f.bodyNodes[0],background)
+  assert.equal(background.style.backgroundColor,'#141414')
+  f.setEnabled(false);owner.sync();assert.equal(f.bodyNodes.length,0)
+  f.setEnabled(true);owner.sync();assert.equal(f.bodyNodes.length,1)
+  owner.close();assert.equal(f.bodyNodes.length,0)
+})
+
+test('ordinary browser pages do not get an iOS Home Screen status background',()=>{
+  const f=fixture();f.window.navigator={standalone:false}
+  const owner=installMobileBrowserAppearance(f.window)
+  assert.equal(f.bodyNodes.length,0);owner.close()
+})
 
 test('browser chrome follows explicit and system themes before and after the body appears',()=>{
   const f=fixture();f.window.document.body=null;f.system.matches=true
