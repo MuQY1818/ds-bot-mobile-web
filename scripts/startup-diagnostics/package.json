@@ -1,0 +1,9 @@
+{
+  "name": "ds-bot-mobile-startup-diagnostics",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "files": ["index.mjs", "cordis.patch.yml"],
+  "dsh": {"bundle": {"patch": "./cordis.patch.yml"}}
+}
