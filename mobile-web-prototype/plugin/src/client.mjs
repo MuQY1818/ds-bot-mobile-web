@@ -8,6 +8,7 @@ import {createMobileViewport} from './mobile-viewport.mjs'
 import {installMobileStyles} from './mobile-styles.mjs'
 import {createMobileTheme} from './mobile-theme.mjs'
 import {clearMobileAssetCache} from '../web-startup.mjs'
+import {installMobileBrowserAppearance} from '../web-appearance.mjs'
 import {createPhoneController} from './phone-controller.mjs'
 import {WebAccessPanel} from './phone-access.mjs'
 import {registerMobileAccessProvider} from './mobile-access-registry.mjs'
@@ -96,6 +97,7 @@ export function apply(ctx){
   let storage
   try{storage=window.localStorage}catch{}
   const preference=createLayoutPreference(storage)
+  const browserAppearance=window[Symbol.for('ds-bot-mobile-web/browser-appearance')]??installMobileBrowserAppearance(window)
   const api=createMobileClient({appRoot:new URL('./',location.href).href})
   const controller=createMobileNavigation({api,workspace:ctx.uiWorkspace,sessions:ctx.sessions,connection:ctx.connection,history:window.history})
   const phone=createPhoneController({appRoot:new URL('./',location.href).href,form:ctx.configForms.get('mobile-layout-local')})
@@ -106,7 +108,7 @@ export function apply(ctx){
   const appearance=createMobileTheme({theme:ctx.theme,subscribe:listener=>ctx.on('theme/change',listener),window,document,enabled:mobileActive})
   const keyboardActive=()=>mobileActive()&&controller.snapshot().page==='chat'
   const keyboardDismiss=()=>viewport?.beginDismiss()
-  ctx.effect(()=>()=>{appearance.close();access.dispose();phone.dispose()})
+  ctx.effect(()=>()=>{appearance.close();browserAppearance.close();delete window[Symbol.for('ds-bot-mobile-web/browser-appearance')];access.dispose();phone.dispose()})
   ctx.effect(()=>{
     const styles=installMobileStyles({window,document,text:css+'\n'+mascotCss+'\n'+phoneCss})
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
@@ -114,7 +116,7 @@ export function apply(ctx){
     viewport=createMobileViewport({window,document,enabled:keyboardActive})
     let cacheRelease
     const polling=createRefreshLoop({enabled:mobileActive,refresh:()=>{if(!controller.snapshot().loading)return controller.refresh()}})
-    const cacheMode=()=>{controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden);if(!preference.snapshot())void clearMobileAssetCache(window)}
+    const cacheMode=()=>{browserAppearance.sync();controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden);if(!preference.snapshot())void clearMobileAssetCache(window)}
     const delayCacheRelease=()=>{clearTimeout(cacheRelease);cacheRelease=setTimeout(()=>controller.setCacheEnabled(false),30000)}
     const poll=()=>polling.sync()
     const offPreference=preference.subscribe(()=>{appearance.cancel();viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()})

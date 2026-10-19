@@ -57,10 +57,10 @@ CI 使用 Node.js 24 执行这些流程，并检查重新构建后 `client.js` �
 
 ```sh
 npm run pack
-npm run check:delivery -- artifacts/ds-bot-mobile-web-0.4.7.tgz
+npm run check:delivery -- artifacts/ds-bot-mobile-web-0.4.8.tgz
 ```
 
-`pack` 会重新构建、校验显式包成员清单，并在 `artifacts/` 生成 `.tgz` 与对应源码提交的发布记录。上例对应当前 `0.4.7`；修改版本后，按实际生成文件名调整第二条命令。
+`pack` 会重新构建、校验显式包成员清单，并在 `artifacts/` 生成 `.tgz` 与对应源码提交的发布记录。上例对应当前 `0.4.8`；修改版本后，按实际生成文件名调整第二条命令。
 
 `check:delivery` 会建立新的隔离 DSH profile，使用 mock 模型，并通过正式插件管理器执行安装、启用、停用、重新启用和卸载检查。它不使用日常团队。检查完成后仍需按变更范围确认真实浏览器行为；包生命周期通过不等同于所有 Safari 真机组合通过。
 

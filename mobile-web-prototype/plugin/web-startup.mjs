@@ -1,3 +1,5 @@
+import {installMobileBrowserAppearance} from './web-appearance.mjs'
+
 export const WORKER_PATH='/ds-bot-mobile-web-worker.js'
 
 // Only version-addressed public executable resources. In particular, a query
@@ -192,8 +194,9 @@ export function renderMobileStartup(html){
   if(/\bid\s*=\s*(["'])dsm-boot\1/i.test(html))return html
   // The host's module scripts precede its viewport meta. Establish the same
   // viewport first so a phone is not measured as the default 980px desktop.
-  const viewport=html.match(/<meta\b(?=[^>]*\bname\s*=\s*["']viewport["'])[^>]*>/i)?.[0]??''
-  if(viewport)html=html.replace(viewport,'')
+  const originalViewport=html.match(/<meta\b(?=[^>]*\bname\s*=\s*["']viewport["'])[^>]*>/i)?.[0]??''
+  if(originalViewport)html=html.replace(originalViewport,'')
+  const viewport=originalViewport&&!/viewport-fit\s*=/i.test(originalViewport)?originalViewport.replace(/(\bcontent\s*=\s*)(["'])(.*?)\2/i,(_,name,quote,content)=>name+quote+content+', viewport-fit=cover'+quote):originalViewport||'<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
   const paths=[...new Set([...html.matchAll(/(?:src|href)=["']((?:\.\/|\/)assets\/[\w.-]+-[\w-]{8,}\.(?:js|css|woff2))["']/g)].map(match=>'/'+match[1].replace(/^\.?\//,'')))]
   const shell='<div id="dsm-boot" role="status" aria-live="polite" aria-atomic="true"><span class="dsm-boot-spinner" aria-hidden="true"></span><p data-dsm-boot-message>正在打开 DS Bot…</p></div>'
   const style=`<style>
@@ -210,7 +213,8 @@ html[data-ds-theme-source=dark][data-dsm-boot]{--dsm-boot-bg:#141414;--dsm-boot-
 @media(prefers-reduced-motion:reduce){#dsm-boot{transition:none}#dsm-boot .dsm-boot-spinner{animation:none}}
 </style>`
   // The loading surface belongs to the document, outside React's replaceable root.
-  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/<body\b(?:[^>"']|"[^"]*"|'[^']*')*>/i,open=>open+shell)
+  const appearance=`<script>window[Symbol.for('ds-bot-mobile-web/browser-appearance')]=(${installMobileBrowserAppearance.toString()})(window);</script>`
+  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+appearance+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/<body\b(?:[^>"']|"[^"]*"|'[^']*')*>/i,open=>open+shell)
 }
 
 export function applyWebStartup(ctx){

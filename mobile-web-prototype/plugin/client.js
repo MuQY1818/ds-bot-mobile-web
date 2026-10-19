@@ -2834,6 +2834,105 @@ function createMobileTheme({ theme, subscribe, window: window2, document: docume
   };
 }
 
+// web-appearance.mjs
+function installMobileBrowserAppearance(window2) {
+  const document2 = window2.document, root = document2.documentElement;
+  const mobile = window2.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
+  const system = window2.matchMedia("(prefers-color-scheme: dark)");
+  const originals = /* @__PURE__ */ new Map(), styles = /* @__PURE__ */ new Map();
+  let body, closed = false, active = false;
+  const remember = (node) => {
+    if (!originals.has(node)) originals.set(node, { content: node.getAttribute("content"), media: node.getAttribute("media") });
+    return node;
+  };
+  const meta = (name, content) => {
+    const existing = [...document2.head.querySelectorAll(`meta[name="${name}"]`)];
+    if (!existing.length) {
+      const node = document2.createElement("meta");
+      node.name = name;
+      node.dataset.dsmBrowserAppearance = "true";
+      originals.set(node, null);
+      document2.head.append(node);
+      existing.push(node);
+    }
+    for (const node of existing) {
+      remember(node);
+      if (node.content !== content) node.content = content;
+      node.removeAttribute("media");
+    }
+  };
+  const restore = () => {
+    for (const [node, original] of originals) {
+      if (original === null) {
+        node.remove();
+        continue;
+      }
+      for (const name of ["content", "media"]) {
+        if (original[name] === null) node.removeAttribute(name);
+        else node.setAttribute(name, original[name]);
+      }
+    }
+    originals.clear();
+    for (const [name, { value, priority }] of styles) {
+      if (value) root.style.setProperty(name, value, priority);
+      else root.style.removeProperty(name);
+    }
+    styles.clear();
+    active = false;
+  };
+  const sync = () => {
+    if (closed) return;
+    let enabled = true;
+    try {
+      enabled = window2.localStorage.getItem("dsh-mobile-layout-local.enabled") !== "false";
+    } catch {
+    }
+    if (!enabled || !mobile.matches) {
+      if (active) restore();
+      return;
+    }
+    active = true;
+    const source = root.dataset.dsThemeSource;
+    const dark = source === "dark" || source !== "light" && (document2.body?.hasAttribute("data-ds-dark-theme") || system.matches);
+    const color = dark ? "#141414" : "#ffffff", scheme = dark ? "dark" : "light";
+    meta("theme-color", color);
+    meta("color-scheme", scheme);
+    meta("apple-mobile-web-app-capable", "yes");
+    meta("apple-mobile-web-app-status-bar-style", "default");
+    for (const [name, value] of [["background-color", color], ["color-scheme", scheme]]) {
+      if (!styles.has(name)) styles.set(name, { value: root.style.getPropertyValue(name), priority: root.style.getPropertyPriority(name) });
+      if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
+    }
+  };
+  const bodyObserver = new window2.MutationObserver(sync);
+  const attach = () => {
+    if (body !== document2.body) {
+      bodyObserver.disconnect();
+      body = document2.body;
+      if (body) bodyObserver.observe(body, { attributes: true, attributeFilter: ["data-ds-dark-theme"] });
+    }
+    sync();
+  };
+  const rootObserver = new window2.MutationObserver(attach);
+  rootObserver.observe(root, { childList: true, attributes: true, attributeFilter: ["data-ds-theme-source"] });
+  mobile.addEventListener("change", sync);
+  system.addEventListener("change", sync);
+  window2.addEventListener("pageshow", sync);
+  window2.addEventListener("storage", sync);
+  attach();
+  return { sync, close() {
+    if (closed) return;
+    closed = true;
+    rootObserver.disconnect();
+    bodyObserver.disconnect();
+    mobile.removeEventListener("change", sync);
+    system.removeEventListener("change", sync);
+    window2.removeEventListener("pageshow", sync);
+    window2.removeEventListener("storage", sync);
+    restore();
+  } };
+}
+
 // web-startup.mjs
 async function clearMobileAssetCache(environment) {
   try {
@@ -3286,6 +3385,7 @@ var mobile_default = `.dsm-chrome,.dsm-return{display:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){
 /* Keep touch scrolling inside the visible mobile surface, including at its edges. */
 html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavior:none}
+body[data-dsm-enabled]{background:var(--dsm-bg)}
 body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(66px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
 body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-main:#fff;--bt-bubble:#f2f2f2;--bt-sidebar:#f7f7f7;--bt-user:#070707;--bt-user-ink:#fff;--bt-ink:#141414;--bt-ink-2:#686868}
 body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929;--bt-sidebar:#1b1b1b;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-ink:#f2f2f2;--bt-ink-2:#aaa;--bt-line:#343434;--bt-hover:#333}
@@ -4738,6 +4838,7 @@ function apply(ctx) {
   } catch {
   }
   const preference = createLayoutPreference(storage);
+  const browserAppearance = window[/* @__PURE__ */ Symbol.for("ds-bot-mobile-web/browser-appearance")] ?? installMobileBrowserAppearance(window);
   const api = createMobileClient({ appRoot: new URL("./", location.href).href });
   const controller = createMobileNavigation({ api, workspace: ctx.uiWorkspace, sessions: ctx.sessions, connection: ctx.connection, history: window.history });
   const phone = createPhoneController({ appRoot: new URL("./", location.href).href, form: ctx.configForms.get("mobile-layout-local") });
@@ -4750,6 +4851,8 @@ function apply(ctx) {
   const keyboardDismiss = () => viewport?.beginDismiss();
   ctx.effect(() => () => {
     appearance.close();
+    browserAppearance.close();
+    delete window[/* @__PURE__ */ Symbol.for("ds-bot-mobile-web/browser-appearance")];
     access.dispose();
     phone.dispose();
   });
@@ -4763,6 +4866,7 @@ function apply(ctx) {
       if (!controller.snapshot().loading) return controller.refresh();
     } });
     const cacheMode = () => {
+      browserAppearance.sync();
       controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches && !document.hidden);
       if (!preference.snapshot()) void clearMobileAssetCache(window);
     };

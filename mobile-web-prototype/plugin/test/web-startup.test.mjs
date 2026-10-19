@@ -196,11 +196,15 @@ test('disabled or desktop boot never activates a layer, while reduced motion rem
   assert.match(rendered,/@media\(max-width:767px\),\(max-width:1024px\) and \(max-height:500px\)\{html\[data-dsm-boot\] #dsm-boot\{display:flex\}\}/)
 })
 
-test('the original mobile viewport is applied before early boot measurements and remains unique',()=>{
+test('the mobile viewport covers safe areas before early boot measurements and remains unique',()=>{
   const viewport='<meta name="viewport" content="width=device-width, initial-scale=1" />'
   const result=renderMobileStartup('<html><head><script src="host.js"></script>'+viewport+'</head><body><div id="root"></div></body></html>')
-  assert.ok(result.indexOf(viewport)<result.indexOf('<script>'))
-  assert.equal(result.split(viewport).length,2)
+  const tags=result.match(/<meta\b(?=[^>]*name="viewport")[^>]*>/g)
+  assert.equal(tags.length,1)
+  assert.match(tags[0],/width=device-width, initial-scale=1, viewport-fit=cover/)
+  assert.ok(result.indexOf(tags[0])<result.indexOf('<script>'))
+  assert.equal((result.match(/viewport-fit=cover/g)||[]).length,1)
+  assert.match(result,/installMobileBrowserAppearance/)
 })
 
 test('official route serves an updatable worker and both route and index transform are disposed',()=>{
