@@ -21,7 +21,7 @@ Mobile Web 与原生 App 使用统一的消息界面方向：白色画布、紧�
 
 README 的会话列表、单聊与群聊来自隔离 DSH / DS Bot 宿主中实际运行的插件，使用**示例数据**与 mock 模型；不表示用户的实际会话或模型输出。图中列表、右上角详情入口及输入区与当前 `0.4.0` 移动界面一致，`0.4.0` 的统一访问壳改动位于电脑端。图片为 390px 响应式浏览器视口，不是 Safari 真机截图。
 
-README 的电脑入口图 `phone-access-window.png` 由用户明确授权提供，展示完整窗口中的共享手机访问入口，选中的是 App 标签；保留原有模糊背景，未展示配对二维码或访问凭据。Web 登录入口位于同一弹窗的 Web 标签。原 `phone-access.png` 则是 Web 标签的脱敏局部图。以下示例用于比较列表、单聊与群聊布局：
+README 的电脑入口图 `phone-access-window.png` 采用用户在 2026-10-19 提供的真实完整窗口截图，选中 **Web** 标签，展示浏览器扫码登录。公开图片中，原二维码完整替换为不含凭据的 `https://phone.example/demo`，私人主机地址替换为 `https://phone.example/`，背景聊天加重模糊；对话框布局与操作控件保留。原 `phone-access.png` 是较早的 Web 标签脱敏局部图。具体来源与处理见[图片说明](images/README.md)。以下示例用于比较列表、单聊与群聊布局：
 
 <p align="center">
   <img src="images/conversations.png" width="230" alt="示例数据：会话列表">

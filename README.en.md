@@ -29,13 +29,13 @@ DS Bot Mobile Web adds phone navigation, a responsive chat layout and QR sign-in
 These captures show the actual Web components in an isolated DSH / DS Bot host, with example data and mock models. They are 390px responsive browser captures, not physical iPhone Safari acceptance. See [image provenance](docs/images/README.md) and [design notes](docs/design.md) for the pictured layout versions and subsequent theme changes.
 
 <details>
-  <summary><strong>Desktop: the shared phone-access entry</strong></summary>
+  <summary><strong>Desktop: Web QR sign-in</strong></summary>
 
 <p align="center">
-  <img src="docs/images/phone-access-window.png" width="960" alt="User-approved full desktop window showing the shared phone-access dialog with its App tab selected">
+  <img src="docs/images/phone-access-window.png" width="960" alt="Actual desktop window showing the Web tab and browser QR sign-in">
 </p>
 
-This user-approved image retains its original blurred background and displays no pairing QR or access credentials. The **App** tab is selected; browser sign-in is on the **Web** tab of the same dialog. The shared dialog does not make the App companion a Web dependency.
+This user-provided capture shows the actual **Web** tab. For public documentation, its QR code is replaced with the credential-free `https://phone.example/demo`, the address uses an example domain, and background conversations receive additional blur. The rest of the sign-in interface is retained. The shared dialog does not make the App companion a Web dependency.
 
 </details>
 

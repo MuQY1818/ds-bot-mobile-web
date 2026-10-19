@@ -29,13 +29,13 @@ DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai
 这些图片来自隔离 DSH / DS Bot 宿主中实际运行的 Web 组件，使用示例数据和 mock 模型，保留原始渲染。它们是 390px 响应式浏览器截图，不能代替 iPhone Safari 真机验收。所示布局的版本范围及后续主题变化见[图片来源](docs/images/README.md)和[设计说明](docs/design.md)。
 
 <details>
-  <summary><strong>查看电脑端共享手机访问入口</strong></summary>
+  <summary><strong>电脑端：Web 扫码登录入口</strong></summary>
 
 <p align="center">
-  <img src="docs/images/phone-access-window.png" width="960" alt="用户授权的完整电脑窗口：共享手机访问弹窗，当前选中 App 标签">
+  <img src="docs/images/phone-access-window.png" width="960" alt="真实电脑窗口中的手机访问 Web 标签，展示浏览器扫码登录入口">
 </p>
 
-用户授权保留的完整窗口截图，沿用原有模糊背景，未展示配对二维码或访问凭据。图中选中的是 **App** 标签；Web 浏览器登录位于同一弹窗的 **Web** 标签。共享弹窗不表示 Web 依赖 App 插件。
+用户提供的真实 **Web** 标签截图。为便于公开展示，二维码已替换为不含登录凭据的 `https://phone.example/demo`，地址改为示意域名，背景聊天已加重模糊；其余登录界面保留。共享弹窗不表示 Web 依赖 App 插件。
 
 </details>
 
