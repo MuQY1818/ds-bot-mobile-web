@@ -12,3 +12,7 @@ The captures retain the rendered interface. The table records the privacy edits 
 ## README artwork
 
 `whale-mark.png` is an AI-assisted illustration based on the user-supplied DS Bot whale reference. It is not a product screenshot. See [artwork source, generation method and prompt](branding.md).
+
+## iOS 27 页头验证
+
+`ios27-header-comparison.png` 来自 iPhone 15 Pro Max / iOS 27.0 模拟器中真实添加到主屏幕的隔离 DSH / DS Bot 页面。左侧为 0.4.14 复现，右侧为 0.4.15 候选第三次冷启动，裁切并等比缩小页头后加版本标签；没有重绘或替换页面内容。两侧使用 mock profile，不含用户聊天、设备地址、二维码或登录凭据。该图不代表用户 iPhone 真机验收。
