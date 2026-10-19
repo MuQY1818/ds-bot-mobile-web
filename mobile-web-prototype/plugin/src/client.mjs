@@ -13,6 +13,7 @@ import {registerMobileAccessProvider} from './mobile-access-registry.mjs'
 import {MobileAccessHost} from './mobile-access-shell.mjs'
 import phoneCss from './phone.css'
 import css from './mobile.css'
+import {mascotCss} from './mascot-css.mjs'
 import {BotAvatar,RoomAvatar,botState} from '../../../ds-bot-upstream/ds-bot/src/client/mark.js'
 
 export const inject=['slots','uiWorkspace','sessions','connection','configForms','theme']
@@ -106,7 +107,7 @@ export function apply(ctx){
   const keyboardDismiss=()=>viewport?.beginDismiss()
   ctx.effect(()=>()=>{appearance.close();access.dispose();phone.dispose()})
   ctx.effect(()=>{
-    const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+phoneCss;document.head.append(style)
+    const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+mascotCss+'\n'+phoneCss;document.head.append(style)
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
     viewport=createMobileViewport({window,document,enabled:keyboardActive})

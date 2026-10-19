@@ -3318,9 +3318,6 @@ html[data-dsm-theme-effect=reveal]::view-transition-new(root){z-index:2}
 @media(prefers-reduced-motion:reduce){.dsm-chrome *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 `;
 
-// ../../ds-bot-upstream/ds-bot/src/client/mark.js
-var import_react3 = require("react");
-
 // ../../ds-bot-upstream/ds-bot/src/client/inks.js
 var INKS = {
   deepseek: ["#4D6BFE", "#6A84FF"],
@@ -3348,6 +3345,36 @@ var LEGACY_INKS = { kimi: "charcoal", zai: "graphite", minimax: "rose", stepfun:
 var isHex = (color) => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color);
 var inkName = (color) => INKS[color] ? color : INKS[LEGACY_INKS[color]] ? LEGACY_INKS[color] : "gray";
 var inkFill = (color) => isHex(color) ? color : `var(--bt-ink-${inkName(color)})`;
+
+// src/mascot-css.mjs
+var palette = (index) => Object.entries(INKS).map(([name, colors]) => `--bt-ink-${name}:${colors[index]}`).join(";");
+var mascotCss = `@media(max-width:767px),(max-width:1024px) and (max-height:500px){
+body[data-dsm-enabled] .bt-mark{${palette(0)};display:inline-block;flex:none;position:relative;line-height:0}
+body[data-dsm-enabled][data-ds-dark-theme] .bt-mark{${palette(1)}}
+body[data-dsm-enabled] .bt-mark svg{width:100%;height:100%;overflow:visible}
+body[data-dsm-enabled] .bt-mark-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;box-shadow:inset 0 0 0 1px var(--dsm-line)}
+body[data-dsm-enabled] .bt-mark .bt-b,body[data-dsm-enabled] .bt-mark .bt-eye,body[data-dsm-enabled] .bt-mark .bt-eyes,body[data-dsm-enabled] .bt-mark .bt-gaze{transform-box:fill-box}
+body[data-dsm-enabled] .bt-mark .bt-b{transform-origin:50% 100%}
+body[data-dsm-enabled] .bt-mark .bt-eye,body[data-dsm-enabled] .bt-mark .bt-eyes{transform-origin:center}
+body[data-dsm-enabled] .bt-badge{position:absolute;right:0;bottom:0;width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px var(--bt-sidebar,#fff)}
+body[data-dsm-enabled] .bt-badge-admin{background:color-mix(in srgb,var(--bt-star,#ff9800) 82%,var(--bt-sidebar,#fff))}
+body[data-dsm-enabled] .bt-badge-admin svg{width:7px;height:7px}
+body[data-dsm-enabled] .bt-badge-main{right:calc(var(--bt-size,36px) * -.07);bottom:calc(var(--bt-size,36px) * -.07);width:clamp(14px,calc(var(--bt-size,36px) * .36),22px);height:clamp(14px,calc(var(--bt-size,36px) * .36),22px);border-radius:0;box-shadow:none}
+body[data-dsm-enabled] .bt-badge-main svg{width:100%;height:100%;overflow:visible}
+body[data-dsm-enabled] .bt-badge-main path{fill:var(--bt-star,#ff9800);stroke:var(--bt-sidebar,#fff);stroke-width:2.6;stroke-linejoin:round;paint-order:stroke}
+body[data-dsm-enabled] .bt-badge-alert{background:color-mix(in srgb,var(--bt-accent,#4d6bfe) 78%,var(--bt-sidebar,#fff));color:var(--bt-accent-ink,#fff);font-size:8.5px;line-height:12px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+body[data-dsm-enabled] .bt-badge-working{background:color-mix(in srgb,var(--bt-green,#00c972) 82%,var(--bt-sidebar,#fff));width:8px;height:8px;right:1px;bottom:1px}
+body[data-dsm-enabled] .bt-cluster{position:relative;display:inline-block;flex:none;line-height:0}
+body[data-dsm-enabled] .bt-cluster>*{position:absolute}
+body[data-dsm-enabled] .bt-cluster-more,body[data-dsm-enabled] .bt-cluster-you{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bt-active,#8883);color:var(--dsm-secondary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+body[data-dsm-enabled] .bt-cluster-you{background:color-mix(in srgb,var(--dsm-ink) 12%,transparent)}
+body[data-dsm-enabled] .bt-stack{display:inline-flex;align-items:center;flex:none;line-height:0}
+body[data-dsm-enabled] .bt-stack>*+*{margin-left:calc(var(--bt-stack-size) * -.3)}
+body[data-dsm-enabled] .bt-stack-more{font-size:11px;line-height:16px;color:var(--dsm-secondary);margin-left:3px!important}
+}`;
+
+// ../../ds-bot-upstream/ds-bot/src/client/mark.js
+var import_react3 = require("react");
 
 // ../../ds-bot-upstream/ds-bot/src/client/characters.js
 var CHARACTERS = {
@@ -4658,7 +4685,7 @@ function apply(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
     style.dataset.mobileLayout = "local";
-    style.textContent = mobile_default + "\n" + phone_default;
+    style.textContent = mobile_default + "\n" + mascotCss + "\n" + phone_default;
     document.head.append(style);
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";

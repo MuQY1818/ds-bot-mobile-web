@@ -165,3 +165,11 @@ Node.js 24 下 102 项插件测试与 23 项宿主适配测试通过，其中 7 
 修复后，Chromium 和 WebKit 各通过 16 组实际渲染断言，覆盖 light / dark 的主页主文字、次级文字、图标、搜索输入、助手气泡、用户气泡、composer 及返回按钮。深色对应对比度为 16.46、7.93、13、13、13、16.46、13、13；浅色最低为次级文字 5.57。气泡检查使用隔离 profile 已有合成记录，没有新增发送。可用已认证的 owned mock-bench 页面运行 `scripts/theme-rendering-check.js` 重复这些断言；脚本拒绝非指定 loopback fixture 页面。
 
 这是隔离 Chromium / WebKit 及加载层 fixture 的证据，不等同于真实 iPhone Safari、桌面 PWA 或生产安装验收。
+
+### 原 Bot 样式撤回时的移动头像
+
+精灵的 SVG 填色依赖固定上游 INKS 中的 CSS 变量；原 Bot 的 shell 组在 Agent 模式下会卸载，移动界面仍可能继续显示 BotAvatar / RoomAvatar。不能依赖该组的全局样式，也不能仅补一条颜色而遗漏组件布局。现由独立的移动样式提供上游 canonical INKS，以及 mark、badge、cluster、stack 所需的最小样式集合，限定到手机布局启用时；不改宿主或上游，不全局重挂整个 SHELL_CSS。
+
+在 WebKit 的正常 Bot 模式与实际设置的 Agent 模式分别切换亮暗：主精灵的有效填色分别为 `rgb(77,107,254)` / `rgb(106,132,255)`，与固定上游 `INKS.deepseek` 一致；保留原 SVG 的 mask 与三处高光。主星为橙色、绝对定位、宽 17.27 px，并处于对应行内；群头像全部 seat 留在 48 px 框内。亮暗切换前后 surface 偏好未变化，测试后恢复原偏好。`scripts/mascot-rendering-check.js` 保留实际填色与布局断言。
+
+Agent 模式下的实际 48 × 48 截图像素检查：亮色有 699 个蓝色像素、59 个橙色徽标像素，暗色有 695 个蓝色像素、57 个橙色徽标像素。截图证明原版样式组已撤回时角色仍有实际颜色，不是只检查变量字符串。其他布局、操作按钮和全部上游皮肤的完整视觉验收不由这些头像／主题截图替代，也没有用这批截图更新 README。
