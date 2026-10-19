@@ -72,6 +72,7 @@ export function MobileChrome({controller,preference,appearance}){
     h('span',{className:'dsm-row-copy'},h('strong',null,item.name,item.isMain?h('span',{className:'dsm-main-badge'},'主 Bot'):null),h('small',null,item.preview||item.role||(item.kind==='room'?'团队群聊':'开始或继续对话'))),
     h('span',{className:'dsm-row-status','data-running':item.running||undefined,'aria-label':item.running?'正在工作':undefined},item.running?h('span',null):null))
   return h('div',{className:'dsm-chrome'},
+    h('div',{className:'dsm-status-bar','aria-hidden':true}),
     h('header',{className:'dsm-bar'},
       isChat?h('button',{onClick:()=>controller.home(),'aria-label':'返回会话列表'},h(Icon,{name:'back'})):h('button',{className:'dsm-theme-toggle',type:'button',onClick:event=>appearance.toggle(event.currentTarget),'aria-label':themeLabel,title:themeLabel},h(ThemeIcon,{dark})),
       h('div',{className:'dsm-current'},isChat?h('span',{className:'dsm-title-mascot'},state.items.find(x=>x.id===state.active?.id)?h(Mascot,{item:state.items.find(x=>x.id===state.active.id),items:state.items,size:28}):null,state.active?.name||'当前会话'):titles[state.tab],h('span',{'data-connected':state.connected,role:'status'},status)),

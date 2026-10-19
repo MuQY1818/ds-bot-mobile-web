@@ -2898,7 +2898,7 @@ function installMobileBrowserAppearance(window2) {
     meta("theme-color", color);
     meta("color-scheme", scheme);
     meta("apple-mobile-web-app-capable", "yes");
-    meta("apple-mobile-web-app-status-bar-style", "default");
+    meta("apple-mobile-web-app-status-bar-style", "black-translucent");
     for (const [name, value] of [["background-color", color], ["color-scheme", scheme]]) {
       if (!styles.has(name)) styles.set(name, { value: root.style.getPropertyValue(name), priority: root.style.getPropertyPriority(name) });
       if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
@@ -3381,12 +3381,19 @@ function MobileAccessHost({ access }) {
 var phone_default = '.dsm-phone-panel{font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:var(--bt-ink,#171717)}.dsm-phone-panel *{box-sizing:border-box}.dsm-phone-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--bt-ink-2,#666);min-height:32px}.dsm-phone-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}.dsm-phone-status[data-ready=true]>span{background:var(--bt-green,#00865b)}.dsm-phone-ready{text-align:center}.dsm-phone-qr{display:block;width:204px;max-width:100%;height:auto;margin:12px auto 10px;border-radius:8px;background:#fff}.dsm-phone-scan{margin:10px 0 4px;font-size:14px}.dsm-phone-address{margin:0 0 18px;font-size:12px;color:var(--bt-ink-2,#666);overflow-wrap:anywhere}.dsm-phone-panel button,.dsm-phone-panel input,.dsm-phone-panel textarea{font:inherit}.dsm-phone-primary,.dsm-phone-config button{min-height:40px;border:0;border-radius:10px;padding:9px 16px;background:var(--bt-ink,#171717);color:var(--bt-main,#fff);cursor:pointer}.dsm-phone-primary{width:100%;font-size:14px!important;font-weight:550}.dsm-phone-actions{display:flex;justify-content:center;gap:20px;margin-top:8px}.dsm-phone-actions button{min-height:36px;border:0;padding:4px;background:transparent;color:var(--bt-ink-2,#666);font-size:12px;cursor:pointer}.dsm-phone-actions button:hover{text-decoration:underline;text-underline-offset:3px}.dsm-phone-manual{margin-top:8px;text-align:left;font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-manual summary{cursor:pointer;text-align:center;min-height:32px;padding:6px 0}.dsm-phone-manual textarea{display:block;width:100%;min-height:88px;margin-top:8px;border:1px solid var(--bt-line,#ddd);border-radius:8px;background:var(--bt-card,#fff);color:inherit;padding:8px;overflow-wrap:anywhere;resize:vertical}.dsm-phone-help{margin:18px 0;color:var(--bt-ink-2,#666)}.dsm-phone-config{margin-top:16px;padding-top:16px;border-top:1px solid var(--bt-line,#ddd)}.dsm-phone-config label{display:block;font-weight:550;font-size:13px}.dsm-phone-config input{width:100%;min-height:44px;padding:9px 11px;margin-top:8px;border:1px solid var(--bt-line,#ddd);border-radius:10px;color:inherit;background:var(--bt-card,#fff)}.dsm-phone-config p{font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-config button:disabled{opacity:.5;cursor:default}.dsm-phone-error{margin:14px 0 0;color:var(--bt-danger,#b42318)}.dsm-phone-note{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--bt-line,#ddd);font-size:12px;color:var(--bt-ink-2,#666)}.dsm-phone-panel :is(button,input,textarea,summary):focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}@media(max-width:540px){.dsm-phone-panel input{font-size:16px}.dsm-phone-panel button{min-height:44px}}\n';
 
 // src/mobile.css
-var mobile_default = `.dsm-chrome,.dsm-return{display:none}
+var mobile_default = `.dsm-chrome,.dsm-return,.dsm-status-bar{display:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){
 /* Keep touch scrolling inside the visible mobile surface, including at its edges. */
 html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavior:none}
+/* The standalone layout can cover the screen while its initial visual viewport
+   still excludes the status bar. Let the root establish the full canvas; the
+   existing visual-viewport helper continues to follow the keyboard. */
+@media(display-mode:standalone),(display-mode:fullscreen){
+html:has(>body[data-dsm-enabled]){height:100lvh}
+.dsm-status-bar{display:block;position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--dsm-bg);pointer-events:none;z-index:2147483646}
+}
 body[data-dsm-enabled]{background:var(--dsm-bg)}
-body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(66px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(56px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;top:0;left:0;width:100%;height:var(--dsm-height,100dvh);overflow:hidden;overscroll-behavior:none}
 body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-main:#fff;--bt-bubble:#f2f2f2;--bt-sidebar:#f7f7f7;--bt-user:#070707;--bt-user-ink:#fff;--bt-ink:#141414;--bt-ink-2:#686868}
 body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929;--bt-sidebar:#1b1b1b;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-ink:#f2f2f2;--bt-ink-2:#aaa;--bt-line:#343434;--bt-hover:#333}
 html[data-dsm-theme-effect=fade] body[data-dsm-enabled] :is(.dsm-bar,.dsm-home,.dsm-tabs,.dsm-search,.dsm-chrome button,.dsm-current,.dsm-row-copy small,.bt-bubble,.bt-ubody,[data-composer-card]){transition:background-color 200ms ease-out,color 200ms ease-out,border-color 200ms ease-out}
@@ -3414,7 +3421,7 @@ body[data-dsm-enabled] .bt-astack[data-lead]>.bt-msg{max-width:100%}
 body[data-dsm-enabled] .bt-msg-line{gap:8px}
 body[data-dsm-enabled] .bt-bubble,body[data-dsm-enabled] .bt-ubody{border-radius:21px;padding:11px 15px;font-size:17px;line-height:26px}
 body[data-dsm-enabled] .bt-group-name{font-size:12px;line-height:18px;margin-left:30px;margin-bottom:4px;color:var(--dsm-secondary)}
-body[data-dsm-enabled] .bt-msg:focus-within,body[data-dsm-enabled] .bt-msg:has(.bt-tools[data-open]){padding-bottom:44px}
+body[data-dsm-enabled] .bt-msg:has(.bt-tools):is(:hover,:focus-within),body[data-dsm-enabled] .bt-msg:has(.bt-tools[data-open]){padding-bottom:48px}
 body[data-dsm-enabled] .bt-tools{top:100%;left:0;margin:2px 0 0;transform:none;gap:2px;z-index:2;background:var(--dsm-bg);border-radius:14px}
 body[data-dsm-enabled] .bt-tools .bt-tool{width:44px;height:44px}
 body[data-dsm-enabled] .bt-tools::after{display:none}
@@ -3458,7 +3465,7 @@ body[data-dsm-enabled] .dsm-chrome{display:block;font-family:-apple-system,Blink
 .dsm-section-heading{display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px}
 .dsm-section-heading h1{font-size:22px;letter-spacing:-.4px;margin:0;font-weight:650}
 .dsm-section-heading>span{font-size:13px;color:var(--dsm-secondary)}
-.dsm-tabs{display:flex;align-items:flex-start;justify-content:space-around;position:fixed;left:0;right:0;top:calc(var(--dsm-top,0px) + var(--dsm-height,100dvh) - var(--dsm-tab-height));height:var(--dsm-tab-height);padding:5px 14px env(safe-area-inset-bottom);background:var(--dsm-bg);border-top:.5px solid var(--dsm-line);pointer-events:auto;box-sizing:border-box;z-index:30}
+.dsm-tabs{display:flex;align-items:flex-start;justify-content:space-around;position:fixed;left:0;right:0;top:calc(var(--dsm-top,0px) + var(--dsm-height,100dvh) - var(--dsm-tab-height));height:var(--dsm-tab-height);padding:4px 14px env(safe-area-inset-bottom);background:var(--dsm-bg);border-top:.5px solid var(--dsm-line);pointer-events:auto;box-sizing:border-box;z-index:30}
 .dsm-tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:54px;border-radius:14px;font-size:11px;color:var(--dsm-secondary);padding:5px 12px}
 .dsm-tabs button[aria-current=page]{color:var(--dsm-ink);font-weight:650}
 .dsm-tabs button[aria-current=page] svg{stroke-width:2}
@@ -4796,6 +4803,7 @@ function MobileChrome({ controller, preference, appearance }) {
   return (0, import_react4.createElement)(
     "div",
     { className: "dsm-chrome" },
+    (0, import_react4.createElement)("div", { className: "dsm-status-bar", "aria-hidden": true }),
     (0, import_react4.createElement)(
       "header",
       { className: "dsm-bar" },

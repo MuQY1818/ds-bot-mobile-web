@@ -213,8 +213,14 @@ html[data-ds-theme-source=dark][data-dsm-boot]{--dsm-boot-bg:#141414;--dsm-boot-
 @media(prefers-reduced-motion:reduce){#dsm-boot{transition:none}#dsm-boot .dsm-boot-spinner{animation:none}}
 </style>`
   // The loading surface belongs to the document, outside React's replaceable root.
+  // iOS resolves the status-bar style at launch and ignores a later script
+  // rewrite, so the served document has to carry the final value. `default`
+  // paints an opaque strip from the *system* appearance, which is why a dark
+  // app on a light phone got a white bar. `black-translucent` is the only value
+  // that lets the page background reach the bar so the glyphs follow the theme.
+  const browserMeta='<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#ffffff"><meta name="color-scheme" content="light dark">'
   const appearance=`<script>window[Symbol.for('ds-bot-mobile-web/browser-appearance')]=(${installMobileBrowserAppearance.toString()})(window);</script>`
-  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+appearance+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/<body\b(?:[^>"']|"[^"]*"|'[^']*')*>/i,open=>open+shell)
+  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+browserMeta+appearance+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/<body\b(?:[^>"']|"[^"]*"|'[^']*')*>/i,open=>open+shell)
 }
 
 export function applyWebStartup(ctx){

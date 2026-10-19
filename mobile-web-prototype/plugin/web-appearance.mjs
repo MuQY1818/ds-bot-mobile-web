@@ -42,7 +42,13 @@ export function installMobileBrowserAppearance(window){
     const color=dark?'#141414':'#ffffff',scheme=dark?'dark':'light'
     meta('theme-color',color);meta('color-scheme',scheme)
     meta('apple-mobile-web-app-capable','yes')
-    meta('apple-mobile-web-app-status-bar-style','default')
+    // iOS reads the status-bar style when the Home Screen entry launches and
+    // does not re-read it when the theme changes. `black-translucent` is the
+    // only value that lets the page's own background reach the status bar, so
+    // the system picks readable glyphs from the content behind it. `default`
+    // paints an opaque strip from the system appearance instead, which is why a
+    // dark app on a light phone showed a white bar.
+    meta('apple-mobile-web-app-status-bar-style','black-translucent')
     for(const [name,value]of [['background-color',color],['color-scheme',scheme]]){
       if(!styles.has(name))styles.set(name,{value:root.style.getPropertyValue(name),priority:root.style.getPropertyPriority(name)})
       if(root.style.getPropertyValue(name)!==value)root.style.setProperty(name,value)

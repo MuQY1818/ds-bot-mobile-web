@@ -10,6 +10,8 @@ export function createMobileViewport({window,document,enabled=()=>true}){
   let closed=false,frame=null,previous=null,pending=null,expiry=null,finishTimer=null
   const now=()=>window.performance?.now?.()??Date.now()
   const number=(value,fallback)=>Number.isFinite(value)?value:fallback
+  // CSS establishes the standalone root's full canvas. Follow its visual
+  // viewport here so opening the keyboard still keeps the composer visible.
   const read=()=>({
     height:viewport?.height>0?viewport.height:window.innerHeight,
     top:number(viewport?.offsetTop,0),

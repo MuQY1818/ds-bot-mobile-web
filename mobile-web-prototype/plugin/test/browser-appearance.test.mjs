@@ -51,7 +51,9 @@ test('existing media-qualified metadata and inline style priority restore on dis
 
 test('wide layout relinquishes mobile metadata and re-entry reacquires it without touching the manifest',()=>{
   const f=fixture(),owner=installMobileBrowserAppearance(f.window)
-  assert.equal(f.value('apple-mobile-web-app-status-bar-style'),'default')
+  // `black-translucent` lets the page background reach the status bar; `default`
+  // would paint it from the system appearance and ignore the in-app theme.
+  assert.equal(f.value('apple-mobile-web-app-status-bar-style'),'black-translucent')
   assert.equal(f.value('apple-mobile-web-app-capable'),'yes')
   f.mobile.matches=false;f.mobile.listener()
   assert.equal(f.nodes.length,0);assert.equal(f.root.style.getPropertyValue('color-scheme'),'')
