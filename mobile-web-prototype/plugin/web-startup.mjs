@@ -117,8 +117,13 @@ function boot(paths){
   if(!enabled){void clearMobileAssetCache(window);return}
   if(!mobile)return
   const html=document.documentElement
+  const message=text=>{
+    html.dataset.dsmBootMessage=text
+    const label=document.querySelector('#dsm-boot [data-dsm-boot-message]')
+    if(label&&label.textContent!==text)label.textContent=text
+  }
   html.dataset.dsmBoot='true'
-  html.dataset.dsmBootMessage='正在打开 DS Bot…'
+  message('正在打开 DS Bot…')
   let finished=false,active,warmed=false,cancelIdle
   const warm=()=>{
     if(warmed||!finished||!active||document.hidden||!enabledNow()||!mobileNow()||navigator.connection?.saveData)return
@@ -134,7 +139,10 @@ function boot(paths){
     if(window.requestIdleCallback){const id=window.requestIdleCallback(run,{timeout:3000});cancelIdle=()=>window.cancelIdleCallback(id)}
     else{const id=setTimeout(run,400);cancelIdle=()=>clearTimeout(id)}
   }
-  const cleanup=()=>{delete html.dataset.dsmBoot;delete html.dataset.dsmBootMessage}
+  const cleanup=()=>{
+    delete html.dataset.dsmBoot;delete html.dataset.dsmBootMessage
+    document.getElementById('dsm-boot')?.remove()
+  }
   const finish=()=>{
     if(finished)return
     finished=true;observer.disconnect();clearTimeout(slow);clearTimeout(fallback)
@@ -142,12 +150,15 @@ function boot(paths){
     else{html.dataset.dsmBoot='leaving';setTimeout(cleanup,180)}
     warm()
   }
-  const check=()=>{if(html.dataset.dsmReady==='true'||!enabledNow()||!mobileNow())finish()}
+  const check=()=>{
+    if(html.dataset.dsmReady==='true'||!enabledNow()||!mobileNow())finish()
+    else if(!finished)message(html.dataset.dsmBootMessage)
+  }
   // A root child may only be the host's empty frame. Wait for the mobile
   // navigation and its first roster/error state rather than flashing it early.
   const observer=new MutationObserver(check)
   observer.observe(html,{childList:true,subtree:true,attributes:true,attributeFilter:['data-dsm-ready']})
-  const slow=setTimeout(()=>{if(!finished)html.dataset.dsmBootMessage='连接较慢，正在等待电脑…'},10000)
+  const slow=setTimeout(()=>{if(!finished)message('连接较慢，正在等待电脑…')},10000)
   const fallback=setTimeout(()=>{if(document.getElementById('root')?.childElementCount)finish()},20000)
   check()
   if(!isSecureContext||!('serviceWorker' in navigator))return
@@ -178,24 +189,26 @@ function boot(paths){
 }
 
 export function renderMobileStartup(html){
-  if(html.includes('id="dsm-boot"'))return html
+  if(/\bid\s*=\s*(["'])dsm-boot\1/i.test(html))return html
   // The host's module scripts precede its viewport meta. Establish the same
   // viewport first so a phone is not measured as the default 980px desktop.
   const viewport=html.match(/<meta\b(?=[^>]*\bname\s*=\s*["']viewport["'])[^>]*>/i)?.[0]??''
   if(viewport)html=html.replace(viewport,'')
   const paths=[...new Set([...html.matchAll(/(?:src|href)=["']((?:\.\/|\/)assets\/[\w.-]+-[\w-]{8,}\.(?:js|css|woff2))["']/g)].map(match=>'/'+match[1].replace(/^\.?\//,'')))]
-  const shell='<div id="dsm-boot" role="status" aria-label="正在打开 DS Bot"></div>'
+  const shell='<div id="dsm-boot" role="status" aria-live="polite" aria-atomic="true"><span class="dsm-boot-spinner" aria-hidden="true"></span><p data-dsm-boot-message>正在打开 DS Bot…</p></div>'
   const style=`<style>
 html[data-dsm-boot]{--dsm-boot-bg:#fff;--dsm-boot-ink:#666;--dsm-boot-ring:#e9e9e9;--dsm-boot-active:#202020}
-html[data-dsm-boot]::before{content:attr(data-dsm-boot-message);position:fixed;inset:0;display:grid;place-content:center;padding:64px 24px 0;box-sizing:border-box;z-index:2147483646;background:var(--dsm-boot-bg);color:var(--dsm-boot-ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;opacity:1;transition:opacity 180ms ease-out}
-html[data-dsm-boot]::after{content:"";position:fixed;top:calc(50% - 38px);left:calc(50% - 17px);width:34px;height:34px;box-sizing:border-box;border:2.5px solid var(--dsm-boot-ring);border-top-color:var(--dsm-boot-active);border-radius:50%;z-index:2147483647;pointer-events:none;animation:dsm-start-spin 850ms linear infinite;opacity:1;transition:opacity 180ms ease-out}
-html[data-dsm-boot=leaving]::before,html[data-dsm-boot=leaving]::after{opacity:0;pointer-events:none}
+#dsm-boot{display:none;position:fixed;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;box-sizing:border-box;z-index:2147483647;background:var(--dsm-boot-bg);color:var(--dsm-boot-ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;opacity:1;transition:opacity 180ms ease-out}
+#dsm-boot .dsm-boot-spinner{display:block;flex:none;width:34px;height:34px;box-sizing:border-box;border:2.5px solid var(--dsm-boot-ring);border-top-color:var(--dsm-boot-active);border-radius:50%;animation:dsm-start-spin 850ms linear infinite}
+#dsm-boot [data-dsm-boot-message]{margin:0;font:inherit;color:inherit}
+html[data-dsm-boot=leaving] #dsm-boot{opacity:0;pointer-events:none}
+@media(max-width:767px),(max-width:1024px) and (max-height:500px){html[data-dsm-boot] #dsm-boot{display:flex}}
 @keyframes dsm-start-spin{to{transform:rotate(360deg)}}
 @media(prefers-color-scheme:dark){html[data-dsm-boot]{--dsm-boot-bg:#141414;--dsm-boot-ink:#aaa;--dsm-boot-ring:#343434;--dsm-boot-active:#e5e5e5}}
-@media(prefers-reduced-motion:reduce){html[data-dsm-boot]::before,html[data-dsm-boot]::after{animation:none;transition:none}}
+@media(prefers-reduced-motion:reduce){#dsm-boot{transition:none}#dsm-boot .dsm-boot-spinner{animation:none}}
 </style>`
-  // createRoot replaces this temporary child on the first real render.
-  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/(<div\s+id=["']root["'][^>]*>)\s*(<\/div>)/i,(_,open,close)=>open+shell+close)
+  // The loading surface belongs to the document, outside React's replaceable root.
+  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/<body\b(?:[^>"']|"[^"]*"|'[^']*')*>/i,open=>open+shell)
 }
 
 export function applyWebStartup(ctx){

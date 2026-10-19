@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto'
 import {createServer} from 'node:net'
 import {once} from 'node:events'
 import {resolve,join} from 'node:path'
+import {WEB_LAUNCH_IMAGES} from '../mobile-web-prototype/plugin/web-launch.mjs'
 
 const root=resolve(import.meta.dirname,'..'),area=join(root,'scripts','.dsh-test-delivery')
 await mkdir(area,{recursive:true,mode:0o700})
@@ -95,9 +96,19 @@ try{
   assert.ok((await manager('plugins')).some(row=>row.moduleName===manifest.name))
   assert.equal((await phoneStatus()).status,200);assert.equal((await phoneStatus(false)).status,401)
   pass('standard bundle enable exposes only the authenticated phone-access route')
+  const launch=await fetch(base+WEB_LAUNCH_IMAGES[0].path)
+  assert.equal(launch.status,200);assert.equal(launch.headers.get('content-type'),'image/png')
+  assert.match(launch.headers.get('cache-control'),/public.*immutable/)
+  assert.deepEqual(Buffer.from(await launch.arrayBuffer()).subarray(0,8),Buffer.from([137,80,78,71,13,10,26,10]))
+  const document=await fetch(base+'/',{headers:{cookie}});const html=await document.text()
+  assert.match(html,/<body\b[^>]*><div id="dsm-boot"/i)
+  assert.ok(html.includes('rel="apple-touch-startup-image"'))
+  assert.ok(html.indexOf('id="dsm-boot"')<html.indexOf('id="root"'))
+  pass('packed startup layer and public launch images are served by the real host')
   assert.deepEqual(await roster(),before);pass('enabling preserves the canonical Bot and Session identities')
   await apply(await manager('select',{enabled:false}),mockPort,webPort)
   assert.equal((await phoneStatus()).status,404);assert.deepEqual(await roster(),before)
+  assert.equal((await fetch(base+WEB_LAUNCH_IMAGES[0].path)).status,404)
   pass('disabling removes the route and preserves the original team')
   await apply(await manager('select',{enabled:true}),mockPort,webPort)
   assert.equal((await phoneStatus()).status,200);await exactPackage()

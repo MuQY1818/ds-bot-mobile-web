@@ -1,6 +1,6 @@
 {
   "name": "ds-bot-mobile-web",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "DS Bot Mobile Web — mobile conversations and secure QR access for your existing DS Bot team",
   "private": true,
   "type": "module",
@@ -19,6 +19,7 @@
     "index.mjs",
     "phone-access.mjs",
     "web-startup.mjs",
+    "web-launch.mjs",
     "client.js",
     "cordis.patch.yml",
     "README.md",

@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {MessageChannel} from 'node:worker_threads'
+import vm from 'node:vm'
 import {installAssetWorker,renderMobileStartup,applyWebStartup,clearMobileAssetCache,versionedCodeKind,WORKER_PATH} from '../web-startup.mjs'
 
 function fixture({broken=false,failWrites=0,response=()=>new Response('asset',{headers:{'content-type':'text/javascript'}})}={}){
@@ -113,13 +114,86 @@ test('disable rechecks worker ownership after awaiting the active worker acknowl
   assert.equal(unregistered,0)
 })
 
-test('boot markup stays inside the replaceable root and does not serialize signed plugin URLs',()=>{
-  const input='<html><head><script src="plugins.js?token=private"></script><script src="./assets/index-12345678.js"></script></head><body><div id="root"></div></body></html>'
-  const result=renderMobileStartup(input)
-  assert.match(result,/<div id="root"><div id="dsm-boot" role="status"/)
-  assert.match(result,/\["\/assets\/index-12345678.js"\]/)
-  assert.equal((result.match(/token=private/g)??[]).length,1)
-  assert.equal(renderMobileStartup(result),result)
+test('the real loading layer is the first body child outside an existing React root',()=>{
+  for(const [open,close] of [['<body>','</body>'],['<BODY class="host" data-label="a>b">','</BODY>']]){
+    const root='<div id="root"><main>Existing host content</main></div>'
+    const input='<HTML><HEAD><script src="plugins.js?token=private"></script><script src="./assets/index-12345678.js"></script></HEAD>'+open+root+close+'</HTML>'
+    const result=renderMobileStartup(input)
+    assert.ok(result.includes(open+'<div id="dsm-boot" role="status"'))
+    assert.ok(result.indexOf('id="dsm-boot"')<result.indexOf(root))
+    assert.ok(result.includes(root))
+    assert.match(result,/<span class="dsm-boot-spinner" aria-hidden="true"><\/span><p data-dsm-boot-message>正在打开 DS Bot…<\/p>/)
+    assert.match(result,/\["\/assets\/index-12345678.js"\]/)
+    assert.equal((result.match(/token=private/g)??[]).length,1)
+    assert.equal(renderMobileStartup(result),result)
+    assert.equal(result.includes('html[data-dsm-boot]::before'),false)
+    assert.equal(result.includes('html[data-dsm-boot]::after'),false)
+  }
+  const existing="<HTML><HEAD></HEAD><BODY><div id='dsm-boot'></div><div id='root'></div></BODY></HTML>"
+  assert.equal(renderMobileStartup(existing),existing)
+})
+
+function startupFixture({mobile=true,enabled=true,reduced=false}={}){
+  const rendered=renderMobileStartup('<html><head></head><body><div id="root"></div></body></html>')
+  const script=[...rendered.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match=>match[1]).find(code=>code.includes('function boot'))
+  const html={dataset:{}},root={childElementCount:0},label={textContent:'正在打开 DS Bot…'}
+  let layer=null,observerCallback,disconnected=false,time=0,id=0,removals=0
+  const timers=new Map()
+  const context={
+    URL,isSecureContext:false,
+    document:{documentElement:html,hidden:false,
+      getElementById:id=>id==='root'?root:id==='dsm-boot'?layer:null,
+      querySelector:()=>layer?label:null,
+    },
+    localStorage:{getItem:()=>enabled?'true':'false'},
+    matchMedia:query=>({matches:query.includes('prefers-reduced-motion')?reduced:mobile}),
+    location:{origin:'https://fixture.invalid'},navigator:{},caches:{async keys(){return []}},
+    MutationObserver:class{
+      constructor(callback){observerCallback=callback}
+      observe(){}
+      disconnect(){disconnected=true}
+    },
+    setTimeout(fn,delay){timers.set(++id,{fn,at:time+delay});return id},
+    clearTimeout(id){timers.delete(id)},
+  }
+  context.window=context
+  vm.runInNewContext(script,context)
+  const advance=milliseconds=>{time+=milliseconds;for(const [id,timer] of [...timers])if(timer.at<=time){timers.delete(id);timer.fn()}}
+  return {html,root,label,timers,advance,
+    get layer(){return layer},get removals(){return removals},get disconnected(){return disconnected},
+    parseBody(){layer={remove(){removals++;layer=null}};observerCallback?.()},
+    mountHost(){root.childElementCount=1;observerCallback?.()},
+    ready(){html.dataset.dsmReady='true';observerCallback?.()},
+  }
+}
+
+test('early boot survives React mounting, updates a real status message and removes its own layer after fade',()=>{
+  const f=startupFixture()
+  assert.equal(f.html.dataset.dsmBoot,'true');assert.equal(f.layer,null)
+  f.parseBody();const layer=f.layer
+  f.mountHost();assert.equal(f.layer,layer);assert.equal(f.html.dataset.dsmBoot,'true')
+  f.advance(10000)
+  assert.equal(f.label.textContent,'连接较慢，正在等待电脑…')
+  assert.equal(f.html.dataset.dsmBootMessage,f.label.textContent)
+  f.ready()
+  assert.equal(f.html.dataset.dsmBoot,'leaving');assert.equal(f.layer,layer)
+  assert.equal(f.disconnected,true)
+  f.advance(179);assert.equal(f.layer,layer)
+  f.advance(1);assert.equal(f.layer,null);assert.equal(f.removals,1)
+  assert.equal(f.html.dataset.dsmBoot,undefined);assert.equal(f.html.dataset.dsmBootMessage,undefined)
+  assert.equal(f.root.childElementCount,1);assert.equal(f.timers.size,0)
+})
+
+test('disabled or desktop boot never activates a layer, while reduced motion removes it without a fade',()=>{
+  for(const options of [{enabled:false},{mobile:false}]){
+    const f=startupFixture(options);f.parseBody();f.mountHost()
+    assert.equal(f.html.dataset.dsmBoot,undefined);assert.equal(f.timers.size,0)
+  }
+  const f=startupFixture({reduced:true});f.parseBody();f.mountHost();f.ready()
+  assert.equal(f.layer,null);assert.equal(f.html.dataset.dsmBoot,undefined);assert.equal(f.timers.size,0)
+  const rendered=renderMobileStartup('<html><head></head><body><div id="root"></div></body></html>')
+  assert.match(rendered,/#dsm-boot\{display:none;/)
+  assert.match(rendered,/@media\(max-width:767px\),\(max-width:1024px\) and \(max-height:500px\)\{html\[data-dsm-boot\] #dsm-boot\{display:flex\}\}/)
 })
 
 test('the original mobile viewport is applied before early boot measurements and remains unique',()=>{

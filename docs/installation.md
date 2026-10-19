@@ -10,7 +10,7 @@ Mobile Web 安装在电脑的 DSH 中。手机只需浏览器，无需安装插�
 
 ## 第一步：安装插件
 
-1. 在电脑打开 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases)，下载 `ds-bot-mobile-web-0.4.4.tgz`。
+1. 在电脑打开 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases)，下载 `ds-bot-mobile-web-0.4.5.tgz`。
 2. 打开现有 DSH 的官方插件管理器，选择本地包安装，选中刚下载的文件。
 3. 确认名称为 `ds-bot-mobile-web`，完成安装后启用并刷新原页面。宿主提示重启时，按提示重启同一个环境。
 
