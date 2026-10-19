@@ -6,7 +6,7 @@
 
 DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 增加手机布局、会话导航和扫码登录入口。插件安装在电脑上，手机直接用浏览器访问；无需安装原生 App，也无需 Mobile Bridge。
 
-当前已发布版本 **0.4.3**，适配 DSH **0.2.1-rc.2** 与 DS Bot **0.1.7**。本版新增基础资源缓存、首屏连接提示和近期会话预热，并修复聊天边界带动整页移动。项目以 Web 为主要使用入口；原生客户端另见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
+当前已发布版本 **0.4.4**，适配 DSH **0.2.1-rc.2** 与 DS Bot **0.1.7**。本版补齐大型插件代码缓存、加载动画与发送后的键盘过渡，并减少恢复时的串行等待。项目以 Web 为主要使用入口；原生客户端另见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 
@@ -40,7 +40,7 @@ DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai
 
 ## 三步开始
 
-1. **安装到电脑**：从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 下载 `ds-bot-mobile-web-0.4.3.tgz`，在现有 DSH 插件管理器安装并启用，刷新页面。
+1. **安装到电脑**：从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 下载 `ds-bot-mobile-web-0.4.4.tgz`，在现有 DSH 插件管理器安装并启用，刷新页面。
 2. **准备手机入口**：保持电脑和 DSH 运行，确认手机能访问已配置的 HTTPS 地址。使用 Tailscale 时，两端都要连接对应私网。配置方法见[网络连接](docs/remote-access.md)。
 3. **扫码登录**：在电脑选择 **手机访问 → Web**，确认入口就绪后扫码，在手机浏览器中打开会话。
 

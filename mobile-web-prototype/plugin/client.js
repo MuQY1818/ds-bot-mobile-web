@@ -2301,10 +2301,16 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
   }
   async function restore() {
     if (disposed || restoring) return restoring;
-    restoring = (async () => {
-      await sessions.refresh();
-      await refresh();
-    })().catch(() => publish({ error: "会话恢复尚未完成，请检查电脑连接。" })).finally(() => {
+    restoring = Promise.allSettled([
+      Promise.resolve().then(() => {
+        if (!disposed) return sessions.refresh();
+      }),
+      Promise.resolve().then(() => {
+        if (!disposed) return refresh();
+      })
+    ]).then((results) => {
+      if (results.some((result) => result.status === "rejected") && !state.error) publish({ error: "会话恢复尚未完成，请检查电脑连接。" });
+    }).finally(() => {
       restoring = void 0;
     });
     return restoring;
@@ -2422,7 +2428,8 @@ function createRefreshLoop({ refresh, enabled, intervalMs = 5e3, setTimer = setT
 }
 
 // src/composer-keyboard.mjs
-function createComposerKeyboard({ anchor, enabled, document: document2 }) {
+function createComposerKeyboard({ anchor, enabled, document: document2, beforeDismiss = () => {
+} }) {
   let initialized = false;
   const seen = /* @__PURE__ */ new Set();
   return {
@@ -2445,8 +2452,178 @@ function createComposerKeyboard({ anchor, enabled, document: document2 }) {
       const card = anchor()?.closest("[data-composer-card]");
       const input = card?.querySelector("[data-composer-input]");
       if (!input || document2.activeElement !== input) return false;
+      beforeDismiss();
       input.blur();
       return true;
+    }
+  };
+}
+
+// src/mobile-viewport.mjs
+var DURATION = 200;
+var DISMISS_WINDOW = 700;
+var DISCRETE_GROWTH = 80;
+function createMobileViewport({ window: window2, document: document2, enabled = () => true }) {
+  const root = document2.documentElement, viewport = window2.visualViewport;
+  const reduced = window2.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const properties = ["--dsm-height", "--dsm-top"];
+  const original = properties.map((name) => [name, root.style.getPropertyValue(name), root.style.getPropertyPriority(name)]);
+  const animations = /* @__PURE__ */ new Set(), listeners = [];
+  let closed = false, frame = null, previous = null, pending = null, expiry = null, finishTimer = null;
+  const now = () => window2.performance?.now?.() ?? Date.now();
+  const number = (value, fallback) => Number.isFinite(value) ? value : fallback;
+  const read = () => ({
+    height: viewport?.height > 0 ? viewport.height : window2.innerHeight,
+    top: number(viewport?.offsetTop, 0),
+    width: viewport?.width > 0 ? viewport.width : window2.innerWidth,
+    scale: number(viewport?.scale, 1)
+  });
+  const listen = (target, type, callback, options) => {
+    target?.addEventListener?.(type, callback, options);
+    listeners.push(() => target?.removeEventListener?.(type, callback, options));
+  };
+  const cancelMotion = () => {
+    pending = null;
+    if (expiry !== null) window2.clearTimeout(expiry);
+    if (finishTimer !== null) window2.clearTimeout(finishTimer);
+    expiry = finishTimer = null;
+    for (const animation of animations) animation.cancel();
+    animations.clear();
+  };
+  const changedGeometry = (a, b) => Math.abs(a.width - b.width) > 3 || Math.abs(a.scale - b.scale) > 0.01;
+  const allowed = (sample) => enabled() && !document2.hidden && !reduced?.matches && Math.abs(sample.scale - 1) < 0.01;
+  const validTarget = (target) => target.seat.isConnected && target.scroll.isConnected && target.seat.closest("[data-conversation-scroll]") === target.scroll && target.host?.getAttribute("data-conversation-session") === target.session;
+  const flip = (element, before) => {
+    if (!element?.isConnected || typeof element.animate !== "function") return;
+    const delta = before - element.getBoundingClientRect().top;
+    if (!Number.isFinite(delta) || Math.abs(delta) < 2) return;
+    try {
+      const animation = element.animate([
+        { transform: `translateY(${delta}px)` },
+        { transform: "translateY(0px)" }
+      ], { duration: DURATION, easing: "cubic-bezier(.22,.7,.25,1)", composite: "add", fill: "none" });
+      animations.add(animation);
+      animation.finished?.then(() => {
+        animations.delete(animation);
+        animation.cancel();
+      }, () => animations.delete(animation));
+    } catch {
+    }
+  };
+  const apply2 = () => {
+    frame = null;
+    if (closed) return;
+    const sample = read(), last = previous;
+    if (!allowed(sample) || last && (changedGeometry(last, sample) || sample.height < last.height - 2)) cancelMotion();
+    if (animations.size && last && (Math.abs(sample.height - last.height) > 2 || Math.abs(sample.top - last.top) > 2)) cancelMotion();
+    let target;
+    if (pending) {
+      if (now() > pending.deadline || changedGeometry(pending.viewport, sample) || !validTarget(pending)) cancelMotion();
+      else if (last && sample.height - last.height >= DISCRETE_GROWTH) {
+        target = {
+          ...pending,
+          seatTop: pending.seat.getBoundingClientRect().top,
+          flowTop: pending.atBottom && pending.flow?.isConnected ? pending.flow.getBoundingClientRect().top : null
+        };
+        pending = null;
+        window2.clearTimeout(expiry);
+        expiry = null;
+      }
+    }
+    const values = [`${sample.height}px`, `${sample.top}px`];
+    properties.forEach((name, index) => {
+      if (root.style.getPropertyValue(name) !== values[index]) root.style.setProperty(name, values[index]);
+    });
+    previous = sample;
+    if (target) {
+      flip(target.seat, target.seatTop);
+      if (target.flowTop !== null) flip(target.flow, target.flowTop);
+      if (animations.size) finishTimer = window2.setTimeout(() => {
+        finishTimer = null;
+        cancelMotion();
+      }, DURATION + 50);
+    }
+  };
+  const sync = () => {
+    if (closed) return;
+    const sample = read();
+    if (!allowed(sample) || previous && (changedGeometry(previous, sample) || sample.height < previous.height - 2)) cancelMotion();
+    if (frame === null) frame = window2.requestAnimationFrame(apply2);
+  };
+  const prepareDismiss = (input) => {
+    if (closed) return false;
+    const sample = read();
+    if (!allowed(sample) || !input?.matches?.("[data-composer-input]")) return false;
+    const seat = input.closest("[data-composer-seat]"), scroll = seat?.closest("[data-conversation-scroll]");
+    if (!seat?.isConnected || !scroll?.isConnected) return false;
+    cancelMotion();
+    const host = seat.closest("[data-conversation-content]");
+    pending = {
+      seat,
+      scroll,
+      host,
+      session: host?.getAttribute("data-conversation-session"),
+      flow: scroll.querySelector("[data-chat-flow]"),
+      atBottom: scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop <= 48,
+      viewport: sample,
+      deadline: now() + DISMISS_WINDOW
+    };
+    expiry = window2.setTimeout(() => {
+      expiry = null;
+      pending = null;
+    }, DISMISS_WINDOW);
+    return true;
+  };
+  const beginDismiss = () => prepareDismiss(document2.activeElement);
+  const editable = (element) => element?.isContentEditable || element?.matches?.('input,textarea,[contenteditable]:not([contenteditable="false"])');
+  const focus = (event) => {
+    if (editable(event.target)) cancelMotion();
+  };
+  const focusOut = (event) => {
+    if (!event.target?.matches?.("[data-composer-input]")) return;
+    if (editable(event.relatedTarget)) {
+      cancelMotion();
+      return;
+    }
+    prepareDismiss(event.target);
+  };
+  const visibility = () => {
+    if (document2.hidden) cancelMotion();
+    else sync();
+  };
+  const orientation = () => {
+    cancelMotion();
+    sync();
+  };
+  listen(viewport, "resize", sync);
+  listen(viewport, "scroll", sync);
+  listen(window2, "resize", sync);
+  listen(window2, "orientationchange", orientation);
+  listen(document2, "focusin", focus);
+  listen(document2, "focusout", focusOut);
+  listen(document2, "visibilitychange", visibility);
+  listen(document2, "pointerdown", cancelMotion, { passive: true });
+  listen(document2, "touchstart", cancelMotion, { passive: true });
+  listen(document2, "wheel", cancelMotion, { passive: true });
+  listen(reduced, "change", () => {
+    cancelMotion();
+    sync();
+  });
+  sync();
+  return {
+    sync,
+    beginDismiss,
+    close() {
+      if (closed) return;
+      closed = true;
+      cancelMotion();
+      if (frame !== null) window2.cancelAnimationFrame(frame);
+      frame = null;
+      for (const off of listeners) off();
+      for (const [name, value, priority] of original) {
+        if (value) root.style.setProperty(name, value, priority);
+        else root.style.removeProperty(name);
+      }
     }
   };
 }
@@ -4223,10 +4400,10 @@ function MobileSettings({ preference, access, view }) {
     (0, import_react4.createElement)("button", { type: "button", onClick: access.open }, "手机访问")
   );
 }
-function ComposerKeyboard({ sessionId, useSession, keyboardActive }) {
+function ComposerKeyboard({ sessionId, useSession, keyboardActive, keyboardDismiss }) {
   const anchor = (0, import_react4.useRef)(null), state = (0, import_react4.useRef)(null);
   const submissions = useSession((snapshot) => snapshot.pendingSubmissions);
-  if (state.current?.sessionId !== sessionId) state.current = { sessionId, observer: createComposerKeyboard({ anchor: () => anchor.current, enabled: keyboardActive, document }) };
+  if (state.current?.sessionId !== sessionId) state.current = { sessionId, observer: createComposerKeyboard({ anchor: () => anchor.current, enabled: keyboardActive, document, beforeDismiss: keyboardDismiss }) };
   (0, import_react4.useLayoutEffect)(() => {
     state.current.observer.update(submissions);
   }, [sessionId, submissions]);
@@ -4236,7 +4413,7 @@ function MobileChrome({ controller, preference }) {
   const state = (0, import_react4.useSyncExternalStore)(controller.subscribe, controller.snapshot, controller.snapshot);
   const enabled = (0, import_react4.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
   const setEnabled = (value) => preference.set(value);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react4.useLayoutEffect)(() => {
     if (enabled) {
       document.body.dataset.dsmEnabled = "true";
       document.body.dataset.dsmPage = state.page;
@@ -4249,6 +4426,14 @@ function MobileChrome({ controller, preference }) {
       delete document.body.dataset.dsmPage;
     };
   }, [enabled, state.page]);
+  const prepared = Boolean(state.lastSync || state.error);
+  (0, import_react4.useLayoutEffect)(() => {
+    if (enabled && prepared) document.documentElement.dataset.dsmReady = "true";
+    else delete document.documentElement.dataset.dsmReady;
+    return () => {
+      delete document.documentElement.dataset.dsmReady;
+    };
+  }, [enabled, prepared]);
   if (!enabled) return (0, import_react4.createElement)("button", { className: "dsm-return", onClick: () => setEnabled(true) }, "手机布局");
   const isChat = state.page === "chat", status = connectionLabel(state.connected);
   const results = state.items.filter((item) => (state.tab !== "team" || item.kind === "bot") && item.name.toLowerCase().includes(state.query.toLowerCase()));
@@ -4310,9 +4495,10 @@ function apply(ctx) {
   const phone = createPhoneController({ appRoot: new URL("./", location.href).href, form: ctx.configForms.get("mobile-layout-local") });
   const access = registerMobileAccessProvider({ id: "web", label: "Web", order: 10, render: () => (0, import_react4.createElement)(WebAccessPanel, { phone }) });
   const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
-  let suspended = false;
+  let suspended = false, viewport;
   const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && !suspended;
   const keyboardActive = () => mobileActive() && controller.snapshot().page === "chat";
+  const keyboardDismiss = () => viewport?.beginDismiss();
   ctx.effect(() => () => {
     access.dispose();
     phone.dispose();
@@ -4324,6 +4510,7 @@ function apply(ctx) {
     document.head.append(style);
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";
+    viewport = createMobileViewport({ window, document, enabled: keyboardActive });
     let cacheRelease;
     const polling = createRefreshLoop({ enabled: mobileActive, refresh: () => {
       if (!controller.snapshot().loading) return controller.refresh();
@@ -4336,25 +4523,22 @@ function apply(ctx) {
       clearTimeout(cacheRelease);
       cacheRelease = setTimeout(() => controller.setCacheEnabled(false), 3e4);
     };
-    const viewport = () => {
-      const v = window.visualViewport;
-      document.documentElement.style.setProperty("--dsm-height", (v?.height ?? innerHeight) + "px");
-      document.documentElement.style.setProperty("--dsm-top", (v?.offsetTop ?? 0) + "px");
-    };
     const poll = () => polling.sync();
     const offPreference = preference.subscribe(() => {
+      viewport.sync();
       cacheMode();
       poll();
       if (mobileActive()) void controller.restore();
     });
     const recover = () => {
       clearTimeout(cacheRelease);
-      viewport();
+      viewport.sync();
       cacheMode();
       poll();
       if (mobileActive()) void controller.restore();
     };
     const mediaChange = () => {
+      viewport.sync();
       cacheMode();
       poll();
       if (mobileActive()) void controller.restore();
@@ -4389,9 +4573,6 @@ function apply(ctx) {
       }
     };
     const pop = (event) => controller.pop(event);
-    window.visualViewport?.addEventListener("resize", viewport);
-    window.visualViewport?.addEventListener("scroll", viewport);
-    window.addEventListener("resize", viewport);
     window.addEventListener("pageshow", show);
     window.addEventListener("pagehide", hide);
     window.addEventListener("online", recover);
@@ -4400,7 +4581,6 @@ function apply(ctx) {
     document.addEventListener("visibilitychange", visible);
     document.addEventListener("freeze", hide);
     document.addEventListener("resume", resume);
-    viewport();
     cacheMode();
     poll();
     if (mobileActive()) void controller.refresh();
@@ -4412,9 +4592,8 @@ function apply(ctx) {
       controller.close();
       style.remove();
       if (meta) meta.content = originalViewport;
-      window.visualViewport?.removeEventListener("resize", viewport);
-      window.visualViewport?.removeEventListener("scroll", viewport);
-      window.removeEventListener("resize", viewport);
+      viewport.close();
+      viewport = void 0;
       window.removeEventListener("pageshow", show);
       window.removeEventListener("pagehide", hide);
       window.removeEventListener("online", recover);
@@ -4422,14 +4601,12 @@ function apply(ctx) {
       document.removeEventListener("visibilitychange", visible);
       document.removeEventListener("freeze", hide);
       document.removeEventListener("resume", resume);
-      document.documentElement.style.removeProperty("--dsm-height");
-      document.documentElement.style.removeProperty("--dsm-top");
       delete document.body.dataset.dsmEnabled;
       delete document.body.dataset.dsmPage;
     };
   });
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference }) }, MobileChrome));
-  ctx.slots.inject("conversation.input.right", () => ctx.slots.register({ name: "conversation.input.right", id: "mobile-composer-keyboard", order: 1e3, inject: () => ({ keyboardActive }) }, ComposerKeyboard));
+  ctx.slots.inject("conversation.input.right", () => ctx.slots.register({ name: "conversation.input.right", id: "mobile-composer-keyboard", order: 1e3, inject: () => ({ keyboardActive, keyboardDismiss }) }, ComposerKeyboard));
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-phone-access", order: 41, inject: () => ({ access }) }, MobileAccessHost));
   ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "ds-bot-mobile-web", inject: () => ({ preference, access }) }, MobileSettings));
 }

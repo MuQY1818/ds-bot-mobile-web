@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {MessageChannel} from 'node:worker_threads'
-import {installAssetWorker,renderMobileStartup,applyWebStartup,clearMobileAssetCache,WORKER_PATH} from '../web-startup.mjs'
+import {installAssetWorker,renderMobileStartup,applyWebStartup,clearMobileAssetCache,versionedCodeKind,WORKER_PATH} from '../web-startup.mjs'
 
 function fixture({broken=false,failWrites=0,response=()=>new Response('asset',{headers:{'content-type':'text/javascript'}})}={}){
   const events={},stores=new Map(),network=[]
@@ -48,9 +48,30 @@ test('a failed quota write leaves network delivery usable and later writes recov
 test('cache eviction is bounded and activation only deletes this plugin old caches',async()=>{
   const f=fixture()
   for(let i=0;i<35;i++)await f.fetchAsset(`/assets/chunk-${String(i).padStart(8,'0')}.js`)
-  assert.equal(f.stores.size,32)
+  assert.equal(f.stores.size,16)
   let done;f.events.activate({waitUntil(value){done=value}});await done
   assert.deepEqual(f.removed,['ds-bot-mobile-web-assets-v0'])
+})
+
+test('only exact revision-addressed public plugin code joins the persistent cache',async()=>{
+  const first='/plugins/??@deepseek-ai/dsh-client-ui-chat/client.js,ds-bot/client.js&rev=012345abcdef'
+  const second=first.replace('012345abcdef','fedcba543210')
+  const f=fixture({response:()=>new Response('code',{headers:{'content-type':'text/javascript','cache-control':'public, max-age=31536000, immutable'}})})
+  for(const path of [first,first,second,second])assert.equal(await(await f.fetchAsset(path)).text(),'code')
+  assert.equal(f.network.length,2)
+  for(const invalid of [first+'&token=private',first+'&rev=012345abcdef',first.replace('client.js,','client.js.map,'),first.replace('012345abcdef','short'),'/api/plugins?rev=012345abcdef','/plugins/??ds-bot/client.js&token=012345abcdef']){
+    assert.equal(versionedCodeKind(invalid,'https://fixture.invalid'),undefined)
+    assert.equal(await f.fetchAsset(invalid),undefined)
+  }
+  assert.equal(versionedCodeKind('/plugins/@scope/plugin/client.lazy-123.js?rev=012345abcdef','https://fixture.invalid'),'plugin')
+})
+
+test('a plugin resource without public immutable permission is always read from the host',async()=>{
+  for(const policy of ['no-store','private, immutable','public, max-age=31536000','immutable','public, immutable, no-store']){
+    const f=fixture({response:()=>new Response('code',{headers:{'content-type':'text/javascript','cache-control':policy}})})
+    for(let i=0;i<2;i++)await f.fetchAsset('/plugins/??ds-bot/client.js&rev=012345abcdef')
+    assert.equal(f.stores.size,0);assert.equal(f.network.length,2)
+  }
 })
 
 test('idle warmup rejects arbitrary URLs and stores only safe public versioned files',async()=>{

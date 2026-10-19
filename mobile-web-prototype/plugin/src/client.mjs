@@ -4,6 +4,7 @@ import {createMobileNavigation} from './controller.mjs'
 import {createLayoutPreference} from './preference.mjs'
 import {createRefreshLoop} from './refresh-loop.mjs'
 import {createComposerKeyboard} from './composer-keyboard.mjs'
+import {createMobileViewport} from './mobile-viewport.mjs'
 import {clearMobileAssetCache} from '../web-startup.mjs'
 import {createPhoneController} from './phone-controller.mjs'
 import {WebAccessPanel} from './phone-access.mjs'
@@ -29,10 +30,10 @@ export function MobileSettings({preference,access,view}){
     h('p',null,'界面偏好仅保存在当前浏览器。'),
     h('button',{type:'button',onClick:access.open},'手机访问'))
 }
-export function ComposerKeyboard({sessionId,useSession,keyboardActive}){
+export function ComposerKeyboard({sessionId,useSession,keyboardActive,keyboardDismiss}){
   const anchor=useRef(null),state=useRef(null)
   const submissions=useSession(snapshot=>snapshot.pendingSubmissions)
-  if(state.current?.sessionId!==sessionId)state.current={sessionId,observer:createComposerKeyboard({anchor:()=>anchor.current,enabled:keyboardActive,document})}
+  if(state.current?.sessionId!==sessionId)state.current={sessionId,observer:createComposerKeyboard({anchor:()=>anchor.current,enabled:keyboardActive,document,beforeDismiss:keyboardDismiss})}
   useLayoutEffect(()=>{state.current.observer.update(submissions)},[sessionId,submissions])
   return h('span',{ref:anchor,hidden:true,'aria-hidden':true})
 }
@@ -40,11 +41,17 @@ export function MobileChrome({controller,preference}){
   const state=useSyncExternalStore(controller.subscribe,controller.snapshot,controller.snapshot)
   const enabled=useSyncExternalStore(preference.subscribe,preference.snapshot,preference.snapshot)
   const setEnabled=value=>preference.set(value)
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     if(enabled){document.body.dataset.dsmEnabled='true';document.body.dataset.dsmPage=state.page}
     else{delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage}
     return()=>{delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage}
   },[enabled,state.page])
+  const prepared=Boolean(state.lastSync||state.error)
+  useLayoutEffect(()=>{
+    if(enabled&&prepared)document.documentElement.dataset.dsmReady='true'
+    else delete document.documentElement.dataset.dsmReady
+    return()=>{delete document.documentElement.dataset.dsmReady}
+  },[enabled,prepared])
   if(!enabled)return h('button',{className:'dsm-return',onClick:()=>setEnabled(true)},'手机布局')
   const isChat=state.page==='chat',status=connectionLabel(state.connected)
   const results=state.items.filter(item=>(state.tab!=='team'||item.kind==='bot')&&item.name.toLowerCase().includes(state.query.toLowerCase()))
@@ -84,46 +91,45 @@ export function apply(ctx){
   const phone=createPhoneController({appRoot:new URL('./',location.href).href,form:ctx.configForms.get('mobile-layout-local')})
   const access=registerMobileAccessProvider({id:'web',label:'Web',order:10,render:()=>h(WebAccessPanel,{phone})})
   const mobileMedia=window.matchMedia('(max-width:767px), (max-width:1024px) and (max-height:500px)')
-  let suspended=false
+  let suspended=false,viewport
   const mobileActive=()=>preference.snapshot()&&mobileMedia.matches&&!document.hidden&&!suspended
   const keyboardActive=()=>mobileActive()&&controller.snapshot().page==='chat'
+  const keyboardDismiss=()=>viewport?.beginDismiss()
   ctx.effect(()=>()=>{access.dispose();phone.dispose()})
   ctx.effect(()=>{
     const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+phoneCss;document.head.append(style)
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
+    viewport=createMobileViewport({window,document,enabled:keyboardActive})
     let cacheRelease
     const polling=createRefreshLoop({enabled:mobileActive,refresh:()=>{if(!controller.snapshot().loading)return controller.refresh()}})
     const cacheMode=()=>{controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden);if(!preference.snapshot())void clearMobileAssetCache(window)}
     const delayCacheRelease=()=>{clearTimeout(cacheRelease);cacheRelease=setTimeout(()=>controller.setCacheEnabled(false),30000)}
-    const viewport=()=>{const v=window.visualViewport;document.documentElement.style.setProperty('--dsm-height',(v?.height??innerHeight)+'px');document.documentElement.style.setProperty('--dsm-top',(v?.offsetTop??0)+'px')}
     const poll=()=>polling.sync()
-    const offPreference=preference.subscribe(()=>{cacheMode();poll();if(mobileActive())void controller.restore()})
-    const recover=()=>{clearTimeout(cacheRelease);viewport();cacheMode();poll();if(mobileActive())void controller.restore()}
-    const mediaChange=()=>{cacheMode();poll();if(mobileActive())void controller.restore()}
+    const offPreference=preference.subscribe(()=>{viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()})
+    const recover=()=>{clearTimeout(cacheRelease);viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()}
+    const mediaChange=()=>{viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()}
     const visible=()=>{if(document.hidden){suspended=true;controller.pauseWarmup();poll();delayCacheRelease()}else if(suspended){suspended=false;recover()}}
     const hide=()=>{suspended=true;poll();clearTimeout(cacheRelease);controller.setCacheEnabled(false)}
     const show=event=>{if(event.persisted&&suspended){suspended=false;recover()}}
     const resume=()=>{if(suspended){suspended=false;recover()}}
     const pop=event=>controller.pop(event)
-    window.visualViewport?.addEventListener('resize',viewport);window.visualViewport?.addEventListener('scroll',viewport)
-    window.addEventListener('resize',viewport);window.addEventListener('pageshow',show);window.addEventListener('pagehide',hide)
+    window.addEventListener('pageshow',show);window.addEventListener('pagehide',hide)
     window.addEventListener('online',recover);window.addEventListener('popstate',pop)
     mobileMedia.addEventListener('change',mediaChange)
     document.addEventListener('visibilitychange',visible);document.addEventListener('freeze',hide);document.addEventListener('resume',resume)
-    viewport();cacheMode();poll();if(mobileActive())void controller.refresh()
+    cacheMode();poll();if(mobileActive())void controller.refresh()
     return()=>{
       polling.close();clearTimeout(cacheRelease);mobileMedia.removeEventListener('change',mediaChange);offPreference();controller.close();style.remove();if(meta)meta.content=originalViewport
-      window.visualViewport?.removeEventListener('resize',viewport);window.visualViewport?.removeEventListener('scroll',viewport)
-      window.removeEventListener('resize',viewport);window.removeEventListener('pageshow',show);window.removeEventListener('pagehide',hide)
+      viewport.close();viewport=undefined
+      window.removeEventListener('pageshow',show);window.removeEventListener('pagehide',hide)
       window.removeEventListener('online',recover);window.removeEventListener('popstate',pop)
       document.removeEventListener('visibilitychange',visible);document.removeEventListener('freeze',hide);document.removeEventListener('resume',resume)
-      document.documentElement.style.removeProperty('--dsm-height');document.documentElement.style.removeProperty('--dsm-top')
       delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage
     }
   })
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference})},MobileChrome))
-  ctx.slots.inject('conversation.input.right',()=>ctx.slots.register({name:'conversation.input.right',id:'mobile-composer-keyboard',order:1000,inject:()=>({keyboardActive})},ComposerKeyboard))
+  ctx.slots.inject('conversation.input.right',()=>ctx.slots.register({name:'conversation.input.right',id:'mobile-composer-keyboard',order:1000,inject:()=>({keyboardActive,keyboardDismiss})},ComposerKeyboard))
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-phone-access',order:41,inject:()=>({access})},MobileAccessHost))
   ctx.slots.inject('plugins.bundle.config',()=>ctx.slots.register({name:'plugins.bundle.config',key:'ds-bot-mobile-web',inject:()=>({preference,access})},MobileSettings))
 }

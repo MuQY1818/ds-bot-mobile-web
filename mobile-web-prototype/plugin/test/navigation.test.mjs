@@ -2,11 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {createMobileNavigation,summarizeTeam} from '../src/controller.mjs'
 const source=initial=>{let value=initial;const listeners=new Set();return{getSnapshot:()=>value,subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn)},set(next){value=next;for(const fn of listeners)fn()},get size(){return listeners.size}}}
-function fixture(api={}){
+function fixture(api={},refreshSessions=async()=>{}){
   const opened=[],list=source({byId:{}}),state=source('connected')
   let refreshes=0,reconnects=0
   const history={state:null,pushState(value){this.state=value},back(){this.state=null}}
-  const controller=createMobileNavigation({api:{conversations:async()=>[{id:'bot',name:'测试Bot',sessionId:'part-1',kind:'bot'}],target:async id=>({id,name:'测试Bot',sessionId:'part-1',kind:'bot'}),...api},workspace:{openSession:id=>opened.push(id)},sessions:{list,refresh:async()=>{refreshes++}},connection:{state,reconnect:()=>{reconnects++}},history,now:()=>123})
+  const controller=createMobileNavigation({api:{conversations:async()=>[{id:'bot',name:'测试Bot',sessionId:'part-1',kind:'bot'}],target:async id=>({id,name:'测试Bot',sessionId:'part-1',kind:'bot'}),...api},workspace:{openSession:id=>opened.push(id)},sessions:{list,refresh:()=>{refreshes++;return refreshSessions()}},connection:{state,reconnect:()=>{reconnects++}},history,now:()=>123})
   return{controller,opened,list,state,history,get refreshes(){return refreshes},get reconnects(){return reconnects}}
 }
 test('logical target navigation selects the canonical Session',async()=>{
@@ -30,6 +30,39 @@ test('superseded navigation and home cancel their metadata waiters',async()=>{
 })
 test('foreground refresh does not submit text or force reconnect',async()=>{
   const f=fixture();await f.controller.restore();await f.controller.restore();assert.equal(f.refreshes,2);assert.equal(f.reconnects,0);f.controller.reconnect();assert.equal(f.reconnects,1);f.state.set('disconnected');assert.equal(f.controller.snapshot().connected,'disconnected');f.controller.close()
+})
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}}
+test('recovery starts independent catalog and roster reads together and shares overlapping calls',async()=>{
+  const catalog=deferred(),roster=deferred();let rosterReads=0
+  const f=fixture({conversations:()=>{rosterReads++;return roster.promise}},()=>catalog.promise)
+  const calls=[f.controller.restore(),f.controller.restore(),f.controller.restore()]
+  await Promise.resolve()
+  assert.equal(f.refreshes,1);assert.equal(rosterReads,1)
+  roster.resolve([{id:'current'}]);await Promise.resolve();await Promise.resolve()
+  assert.equal(f.controller.snapshot().items[0].id,'current')
+  catalog.resolve();await Promise.all(calls)
+  await f.controller.restore();assert.equal(f.refreshes,2);assert.equal(rosterReads,2);f.controller.close()
+})
+test('recovery remains shared after one read fails until the other settles',async()=>{
+  const catalog=deferred(),roster=deferred();let rosterReads=0
+  const f=fixture({conversations:()=>{rosterReads++;return roster.promise}},()=>catalog.promise)
+  const first=f.controller.restore();await Promise.resolve()
+  catalog.reject(new Error('catalog unavailable'));await Promise.resolve();await Promise.resolve()
+  const second=f.controller.restore();await Promise.resolve()
+  assert.equal(f.refreshes,1);assert.equal(rosterReads,1)
+  roster.resolve([{id:'current'}]);await Promise.all([first,second])
+  assert.match(f.controller.snapshot().error,/会话恢复尚未完成/)
+  await f.controller.restore();assert.equal(f.refreshes,2);assert.equal(rosterReads,2);f.controller.close()
+})
+test('a synchronous catalog failure still starts the roster read and preserves its auth error',async()=>{
+  let rosterReads=0
+  const f=fixture({conversations:async()=>{rosterReads++;throw Object.assign(new Error('unauthorized'),{code:'HTTP_401'})}},()=>{throw new Error('catalog unavailable')})
+  await f.controller.restore();assert.equal(f.refreshes,1);assert.equal(rosterReads,1);assert.match(f.controller.snapshot().error,/登录已失效/);f.controller.close()
+})
+test('closing before deferred recovery starts prevents new reads',async()=>{
+  let rosterReads=0;const f=fixture({conversations:async()=>{rosterReads++;return[]}})
+  const pending=f.controller.restore();f.controller.close();await pending
+  assert.equal(f.refreshes,0);assert.equal(rosterReads,0);assert.equal(f.list.size,0);assert.equal(f.state.size,0)
 })
 test('401 is visible without credential fields or false connected claim',async()=>{
   const f=fixture({conversations:async()=>{throw Object.assign(new Error('unauthorized'),{code:'HTTP_401'})}});await f.controller.refresh();assert.match(f.controller.snapshot().error,/登录已失效/);assert.equal(f.controller.snapshot().loading,false);f.controller.close()

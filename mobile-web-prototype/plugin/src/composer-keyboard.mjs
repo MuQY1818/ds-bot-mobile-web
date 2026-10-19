@@ -1,5 +1,5 @@
 /** Observe real local Session submissions, without duplicating the host's send/keymap rules. */
-export function createComposerKeyboard({anchor,enabled,document}){
+export function createComposerKeyboard({anchor,enabled,document,beforeDismiss=()=>{}}){
   let initialized=false
   const seen=new Set()
   return {
@@ -21,6 +21,7 @@ export function createComposerKeyboard({anchor,enabled,document}){
       const card=anchor()?.closest('[data-composer-card]')
       const input=card?.querySelector('[data-composer-input]')
       if(!input||document.activeElement!==input)return false
+      beforeDismiss()
       input.blur()
       return true
     },

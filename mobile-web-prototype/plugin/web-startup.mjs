@@ -1,5 +1,18 @@
 export const WORKER_PATH='/ds-bot-mobile-web-worker.js'
 
+// Only version-addressed public executable resources. In particular, a query
+// string is accepted solely for DSH's exact immutable plugin-code protocol.
+export function versionedCodeKind(value,origin){
+  let url
+  try{url=new URL(value,origin)}catch{return undefined}
+  if(url.origin!==origin||url.hash||url.username||url.password)return undefined
+  if(!url.search&&/^\/assets\/[\w.-]+-[\w-]{8,}\.(?:js|css|woff2)$/.test(url.pathname))return 'core'
+  const entry='(?:@[\\w.-]+/)?[\\w.-]+/client\\.js'
+  if(url.pathname==='/plugins/'&&url.search.length<=3072&&new RegExp('^\\?\\?'+entry+'(?:,'+entry+')*&rev=[a-f0-9]{12}$').test(url.search))return 'plugin'
+  if(/^\/plugins\/(?:@[\w.-]+\/)?[\w.-]+\/client\.[\w.-]+\.js$/.test(url.pathname)&&/^\?rev=[a-f0-9]{12}$/.test(url.search))return 'plugin'
+  return undefined
+}
+
 export async function clearMobileAssetCache(environment){
   try{
     const registration=await environment.navigator.serviceWorker?.getRegistration('/')
@@ -22,7 +35,7 @@ export async function clearMobileAssetCache(environment){
 
 // Runs without the application bundle. Only public, versioned static assets
 // belong here; documents, login URLs, APIs and messages always use the network.
-export function installAssetWorker(worker){
+export function installAssetWorker(worker,resourceKind=versionedCodeKind){
   const prefix='ds-bot-mobile-web-assets-',name=prefix+'v1'
   let writes=Promise.resolve(),inactive=false,retirement
   const retire=()=>{
@@ -40,21 +53,26 @@ export function installAssetWorker(worker){
   const eligible=request=>{
     const url=new URL(request.url)
     return !inactive&&request.method==='GET'&&request.mode!=='navigate'&&!request.headers?.has('range')&&request.cache!=='no-store'&&request.cache!=='reload'&&
-      url.origin===worker.location.origin&&!url.search&&!url.hash&&/^\/assets\/[\w.-]+-[\w-]{8,}\.(?:js|css|woff2)$/.test(url.pathname)
+      Boolean(resourceKind(url.href,worker.location.origin))
   }
   const first=async request=>{
     let cache
     try{cache=await worker.caches.open(name);const hit=await cache.match(request);if(hit)return {response:hit}}catch{}
     const response=await worker.fetch(request)
     const type=response.headers.get('content-type')??''
+    const policy=response.headers.get('cache-control')??''
+    // Plugin bytes may be very large. Only the host's explicitly public,
+    // immutable code responses can become durable browser assets.
+    const plugin=resourceKind(request.url,worker.location.origin)==='plugin'
+    if(plugin&&(!/(?:^|,)\s*public\b/i.test(policy)||!/(?:^|,)\s*immutable\b/i.test(policy)||/(?:^|,)\s*private\b/i.test(policy)))return {response}
     if(!cache||response.status!==200||response.redirected||!/(?:javascript|text\/css|font\/woff2)/i.test(type)||
-      /(?:^|,)\s*no-store\b/i.test(response.headers.get('cache-control')??'')||/(?:\*|\bcookie\b|\bauthorization\b)/i.test(response.headers.get('vary')??''))return {response}
+      /(?:^|,)\s*no-store\b/i.test(policy)||/(?:\*|\bcookie\b|\bauthorization\b)/i.test(response.headers.get('vary')??''))return {response}
     const copy=response.clone()
     const saved=writes=writes.then(async()=>{
       if(inactive)return
       await cache.put(request,copy)
       const keys=await cache.keys()
-      for(const key of keys.slice(0,Math.max(0,keys.length-32)))await cache.delete(key)
+      for(const key of keys.slice(0,Math.max(0,keys.length-16)))await cache.delete(key)
     }).catch(()=>{})
     return {response,saved}
   }
@@ -82,9 +100,9 @@ export function installAssetWorker(worker){
     }
     if(event.data?.type!=='ds-bot-mobile-web/warm'||!Array.isArray(event.data.paths))return
     event.waitUntil((async()=>{
-      for(const path of event.data.paths.slice(0,8)){
+      for(const path of event.data.paths.slice(0,12)){
         if(typeof path!=='string')continue
-        try{const request=new Request(new URL(path,worker.location.origin),{credentials:'omit'});if(eligible(request)){const result=await first(request);await result.saved}}catch{}
+        try{const request=new Request(new URL(path,worker.location.origin),{credentials:'omit',cache:'force-cache'});if(eligible(request)){const result=await first(request);await result.saved}}catch{}
       }
     })())
   })
@@ -100,17 +118,38 @@ function boot(paths){
   if(!mobile)return
   const html=document.documentElement
   html.dataset.dsmBoot='true'
-  html.dataset.dsmBootMessage='正在连接你的电脑…'
-  const observer=new MutationObserver(()=>{
-    const root=document.getElementById('root')
-    if(root&&[...root.children].some(child=>child.id!=='dsm-boot')){
-      delete html.dataset.dsmBoot;delete html.dataset.dsmBootMessage;observer.disconnect()
+  html.dataset.dsmBootMessage='正在打开 DS Bot…'
+  let finished=false,active,warmed=false,idle
+  const warm=()=>{
+    if(warmed||!finished||!active||document.hidden||!enabledNow()||!mobileNow()||navigator.connection?.saveData)return
+    warmed=true
+    const run=()=>{
+      if(document.hidden||!enabledNow()||!mobileNow())return
+      const loaded=[...document.querySelectorAll('script[src],link[rel=preload],link[rel=modulepreload],link[rel=stylesheet]')].map(node=>node.src||node.href)
+      const resources=performance.getEntriesByType('resource').map(entry=>entry.name)
+      const urls=[...new Set([...paths,...loaded,...resources].filter(value=>versionedCodeKind(value,location.origin)).map(value=>{const url=new URL(value,location.origin);return url.pathname+url.search}))]
+      active.postMessage({type:'ds-bot-mobile-web/warm',paths:urls})
     }
-  })
-  observer.observe(html,{childList:true,subtree:true})
-  setTimeout(()=>{if(html.dataset.dsmBoot)html.dataset.dsmBootMessage='连接耗时较长，请确认电脑和 Tailscale 在线。'},15000)
+    if(window.requestIdleCallback)idle=window.requestIdleCallback(run,{timeout:3000});else idle=setTimeout(run,400)
+  }
+  const cleanup=()=>{delete html.dataset.dsmBoot;delete html.dataset.dsmBootMessage}
+  const finish=()=>{
+    if(finished)return
+    finished=true;observer.disconnect();clearTimeout(slow);clearTimeout(fallback)
+    if(matchMedia('(prefers-reduced-motion:reduce)').matches)cleanup()
+    else{html.dataset.dsmBoot='leaving';setTimeout(cleanup,180)}
+    warm()
+  }
+  const check=()=>{if(html.dataset.dsmReady==='true'||!enabledNow()||!mobileNow())finish()}
+  // A root child may only be the host's empty frame. Wait for the mobile
+  // navigation and its first roster/error state rather than flashing it early.
+  const observer=new MutationObserver(check)
+  observer.observe(html,{childList:true,subtree:true,attributes:true,attributeFilter:['data-dsm-ready']})
+  const slow=setTimeout(()=>{if(!finished)html.dataset.dsmBootMessage='连接较慢，正在等待电脑…'},10000)
+  const fallback=setTimeout(()=>{if(document.getElementById('root')?.childElementCount)finish()},20000)
+  check()
   if(!isSecureContext||!('serviceWorker' in navigator))return
-  const start=()=>setTimeout(()=>{
+  const start=()=>{
     if(document.hidden||!enabledNow()||!mobileNow())return
     void (async()=>{
       const script=new URL('/ds-bot-mobile-web-worker.js',location.origin).href
@@ -121,10 +160,11 @@ function boot(paths){
       const ready=await navigator.serviceWorker.ready
       if(ready.scope!==registration.scope||ready.active?.scriptURL!==script)return
       if(document.hidden||!enabledNow()||!mobileNow()){if(!enabledNow())await clearMobileAssetCache(window);return}
-      if(!navigator.connection?.saveData)ready.active.postMessage({type:'ds-bot-mobile-web/warm',paths})
+      active=ready.active;warm()
     })().catch(()=>{})
-  },5000)
+  }
   if(document.readyState==='complete')start();else window.addEventListener('load',start,{once:true})
+  window.addEventListener('pagehide',()=>{if(window.cancelIdleCallback)window.cancelIdleCallback(idle);clearTimeout(idle)},{once:true})
 }
 
 export function renderMobileStartup(html){
@@ -134,10 +174,18 @@ export function renderMobileStartup(html){
   const viewport=html.match(/<meta\b(?=[^>]*\bname\s*=\s*["']viewport["'])[^>]*>/i)?.[0]??''
   if(viewport)html=html.replace(viewport,'')
   const paths=[...new Set([...html.matchAll(/(?:src|href)=["']((?:\.\/|\/)assets\/[\w.-]+-[\w-]{8,}\.(?:js|css|woff2))["']/g)].map(match=>'/'+match[1].replace(/^\.?\//,'')))]
-  const shell='<div id="dsm-boot" role="status" aria-label="正在连接你的电脑"></div>'
-  const style='<style>html[data-dsm-boot]::before{content:"DS Bot\\a" attr(data-dsm-boot-message);white-space:pre-line;position:fixed;inset:0;display:grid;place-content:center;gap:12px;padding:32px;box-sizing:border-box;z-index:2147483646;pointer-events:none;background:#fff;color:#555;font:18px/2 -apple-system,BlinkMacSystemFont,sans-serif;text-align:center}@media(prefers-color-scheme:dark){html[data-dsm-boot]::before{background:#141414;color:#ddd}}</style>'
+  const shell='<div id="dsm-boot" role="status" aria-label="正在打开 DS Bot"></div>'
+  const style=`<style>
+html[data-dsm-boot]{--dsm-boot-bg:#fff;--dsm-boot-ink:#666;--dsm-boot-ring:#e9e9e9;--dsm-boot-active:#202020}
+html[data-dsm-boot]::before{content:attr(data-dsm-boot-message);position:fixed;inset:0;display:grid;place-content:center;padding:64px 24px 0;box-sizing:border-box;z-index:2147483646;background:var(--dsm-boot-bg);color:var(--dsm-boot-ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;opacity:1;transition:opacity 180ms ease-out}
+html[data-dsm-boot]::after{content:"";position:fixed;top:calc(50% - 38px);left:calc(50% - 17px);width:34px;height:34px;box-sizing:border-box;border:2.5px solid var(--dsm-boot-ring);border-top-color:var(--dsm-boot-active);border-radius:50%;z-index:2147483647;pointer-events:none;animation:dsm-start-spin 850ms linear infinite;opacity:1;transition:opacity 180ms ease-out}
+html[data-dsm-boot=leaving]::before,html[data-dsm-boot=leaving]::after{opacity:0;pointer-events:none}
+@keyframes dsm-start-spin{to{transform:rotate(360deg)}}
+@media(prefers-color-scheme:dark){html[data-dsm-boot]{--dsm-boot-bg:#141414;--dsm-boot-ink:#aaa;--dsm-boot-ring:#343434;--dsm-boot-active:#e5e5e5}}
+@media(prefers-reduced-motion:reduce){html[data-dsm-boot]::before,html[data-dsm-boot]::after{animation:none;transition:none}}
+</style>`
   // createRoot replaces this temporary child on the first real render.
-  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/(<div\s+id=["']root["'][^>]*>)\s*(<\/div>)/i,(_,open,close)=>open+shell+close)
+  return html.replace(/<head(?:\s[^>]*)?>/i,open=>open+viewport+style+`<script>(()=>{const clearMobileAssetCache=(${clearMobileAssetCache.toString()});const versionedCodeKind=(${versionedCodeKind.toString()});(${boot.toString()})(${JSON.stringify(paths)});})();</script>`).replace(/(<div\s+id=["']root["'][^>]*>)\s*(<\/div>)/i,(_,open,close)=>open+shell+close)
 }
 
 export function applyWebStartup(ctx){
@@ -147,6 +195,6 @@ export function applyWebStartup(ctx){
     const headers={'content-type':'text/javascript; charset=utf-8','cache-control':'no-store','service-worker-allowed':'/','x-content-type-options':'nosniff'}
     if(!['GET','HEAD'].includes(request.method)){response.writeHead(405,{...headers,allow:'GET, HEAD'});response.end();return}
     response.writeHead(200,headers)
-    response.end(request.method==='HEAD'?undefined:`(${installAssetWorker.toString()})(self);`)
+    response.end(request.method==='HEAD'?undefined:`(${installAssetWorker.toString()})(self,${versionedCodeKind.toString()});`)
   }}))
 }

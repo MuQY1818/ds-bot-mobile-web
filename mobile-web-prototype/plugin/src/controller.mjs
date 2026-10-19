@@ -81,7 +81,14 @@ export function createMobileNavigation({ api, workspace, sessions, connection, h
   }
   async function restore(){
     if(disposed||restoring)return restoring
-    restoring=(async()=>{await sessions.refresh();await refresh()})().catch(()=>publish({error:'会话恢复尚未完成，请检查电脑连接。'})).finally(()=>{restoring=undefined})
+    // The Session catalog and Bot/Room roster are independent reads. Keep the
+    // recovery shared until both settle, including when one fails first.
+    restoring=Promise.allSettled([
+      Promise.resolve().then(()=>{if(!disposed)return sessions.refresh()}),
+      Promise.resolve().then(()=>{if(!disposed)return refresh()}),
+    ]).then(results=>{
+      if(results.some(result=>result.status==='rejected')&&!state.error)publish({error:'会话恢复尚未完成，请检查电脑连接。'})
+    }).finally(()=>{restoring=undefined})
     return restoring
   }
   return {
