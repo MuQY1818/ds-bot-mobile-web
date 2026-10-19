@@ -6,9 +6,7 @@
 
 DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）和 [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) 增加手机布局、会话导航和扫码登录入口。插件安装在电脑上，手机直接用浏览器访问；无需安装原生 App，也无需 Mobile Bridge。
 
-当前已发布版本 **0.4.5**，适配 DSH **0.2.1-rc.2** 与 DS Bot **0.1.7**。本版增加 iPhone 桌面启动画面和独立加载层，保留大型代码缓存、发送后的键盘过渡与并行恢复。项目以 Web 为主要使用入口；原生客户端另见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
-
-本分支的 **0.4.6 候选**增加日夜切换：主页左上角太阳／月亮按钮沿用宿主外观偏好，刷新后保持选择。发布状态以 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 为准。
+当前版本 **0.4.6**，适配 DSH **0.2.1-rc.2** 与 DS Bot **0.1.7**。主页左上角可以切换日夜主题，配合短暂动画并保留选择；精灵、星标和群头像在两种主题下正常显示。本版保留 iPhone 桌面启动画面、独立加载层、代码缓存与发送后的键盘过渡。项目以 Web 为主要使用入口；原生客户端另见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
 ## 界面预览
 

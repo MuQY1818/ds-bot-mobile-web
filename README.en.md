@@ -6,9 +6,7 @@ Continue your existing Bot conversations from a phone browser.
 
 DS Bot Mobile Web adds phone navigation, a responsive chat layout and QR sign-in to an existing [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) and [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) installation. Install the plugin on the computer and use a browser on the phone. A native App and Mobile Bridge are not required.
 
-The current release is **0.4.5**, targeting DSH **0.2.1-rc.2** and DS Bot **0.1.7**. This version adds iPhone home-screen launch images and an independent loading layer, retaining persistent code caching, smoother keyboard dismissal and parallel recovery. Web is the primary access path; the native source preview is maintained in [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
-
-The **0.4.6 candidate** on this branch adds a sun/moon toggle that uses the host theme preference and retains the selection after reload. See [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) for published builds.
+The current version is **0.4.6**, targeting DSH **0.2.1-rc.2** and DS Bot **0.1.7**. A persistent sun/moon toggle adds a short theme transition, with readable controls and correctly colored mascots, badges and group avatars in both themes. Home-screen launch images, independent loading feedback, code caching and keyboard dismissal improvements are retained. Web is the primary access path; the native source preview is maintained in [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
 
 ## Preview
 
