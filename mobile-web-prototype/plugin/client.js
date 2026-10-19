@@ -2474,7 +2474,11 @@ function createMobileViewport({ window: window2, document: document2, enabled = 
   const number = (value, fallback) => Number.isFinite(value) ? value : fallback;
   const read = () => ({
     height: viewport?.height > 0 ? viewport.height : window2.innerHeight,
-    top: number(viewport?.offsetTop, 0),
+    // A Home Screen Web App can retain a negative status-bar inset after
+    // dismissing the keyboard, including on relaunch. Fixed layers already
+    // account for that native inset; applying it again lifts the header under
+    // the clock. Positive offsets still follow the keyboard's viewport.
+    top: window2.navigator?.standalone === true ? Math.max(0, number(viewport?.offsetTop, 0)) : number(viewport?.offsetTop, 0),
     width: viewport?.width > 0 ? viewport.width : window2.innerWidth,
     scale: number(viewport?.scale, 1)
   });
@@ -2894,6 +2898,9 @@ function installMobileBrowserAppearance(window2) {
       return;
     }
     active = true;
+    const navigator2 = window2.navigator;
+    const ios27Home = navigator2?.standalone === true && /iPhone|iPod/.test(navigator2.userAgent ?? "") && /\bVersion\/27\./.test(navigator2.userAgent ?? "");
+    const edgeInset = ios27Home ? "min(24px, env(safe-area-inset-top))" : "0px";
     const source = root.dataset.dsThemeSource;
     const dark = source === "dark" || source !== "light" && (document2.body?.hasAttribute("data-ds-dark-theme") || system.matches);
     const color = dark ? "#141414" : "#ffffff", scheme = dark ? "dark" : "light";
@@ -2912,7 +2919,7 @@ function installMobileBrowserAppearance(window2) {
       }
       statusBar.style.backgroundColor = color;
     }
-    for (const [name, value] of [["background-color", color], ["color-scheme", scheme]]) {
+    for (const [name, value] of [["background-color", color], ["color-scheme", scheme], ["--dsm-edge-inset", edgeInset]]) {
       if (!styles.has(name)) styles.set(name, { value: root.style.getPropertyValue(name), priority: root.style.getPropertyPriority(name) });
       if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
     }
@@ -3405,7 +3412,7 @@ html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavio
 html:has(>body[data-dsm-enabled]){height:100lvh}
 }
 body[data-dsm-enabled]{background:var(--dsm-bg)}
-body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(56px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;top:0;left:0;width:100%;height:var(--dsm-height,100dvh);overflow:hidden;overscroll-behavior:none}
+body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-safe-top:calc(env(safe-area-inset-top) + var(--dsm-edge-inset,0px));--dsm-bar:calc(68px + var(--dsm-safe-top));--dsm-tab-height:calc(56px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;top:0;left:0;width:100%;height:var(--dsm-height,100dvh);overflow:hidden;overscroll-behavior:none}
 body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-main:#fff;--bt-bubble:#f2f2f2;--bt-sidebar:#f7f7f7;--bt-user:#070707;--bt-user-ink:#fff;--bt-ink:#141414;--bt-ink-2:#686868}
 body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929;--bt-sidebar:#1b1b1b;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-ink:#f2f2f2;--bt-ink-2:#aaa;--bt-line:#343434;--bt-hover:#333}
 html[data-dsm-theme-effect=fade] body[data-dsm-enabled] :is(.dsm-bar,.dsm-home,.dsm-tabs,.dsm-search,.dsm-chrome button,.dsm-current,.dsm-row-copy small,.bt-bubble,.bt-ubody,[data-composer-card]){transition:background-color 200ms ease-out,color 200ms ease-out,border-color 200ms ease-out}
@@ -3418,7 +3425,7 @@ body[data-dsm-enabled] [data-slot="conversation.header"],body[data-dsm-enabled] 
 body[data-dsm-enabled][data-dsm-page=chat] :is([data-slot="conversation.header"],header[class*="_header"]:has(.bt-head)){display:contents!important}
 body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-head{display:contents!important}
 body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-head>:not(.bt-pill){display:none!important}
-body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill{position:fixed!important;top:calc(var(--dsm-top,0px) + env(safe-area-inset-top) + 8px)!important;right:18px!important;left:auto!important;display:grid!important;place-items:center;width:44px!important;height:44px!important;max-width:44px!important;margin:0!important;padding:0!important;background:var(--dsm-surface)!important;border:0!important;border-radius:50%!important;box-shadow:none!important;transform:none!important;z-index:35;pointer-events:auto}
+body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill{position:fixed!important;top:calc(var(--dsm-top,0px) + var(--dsm-safe-top) + 12px)!important;right:18px!important;left:auto!important;display:grid!important;place-items:center;width:44px!important;height:44px!important;max-width:44px!important;margin:0!important;padding:0!important;background:var(--dsm-surface)!important;border:0!important;border-radius:50%!important;box-shadow:none!important;transform:none!important;z-index:35;pointer-events:auto}
 body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill>*{display:none!important}
 body[data-dsm-enabled][data-dsm-page=chat] header[class*="_header"] .bt-pill::after{content:'⋯';font:27px/1 -apple-system,BlinkMacSystemFont,sans-serif;color:var(--dsm-ink);margin-top:-8px}
 body[data-dsm-enabled] .bt-panel{top:calc(var(--dsm-top,0px) + var(--dsm-bar))!important;bottom:auto!important;height:calc(var(--dsm-height,100dvh) - var(--dsm-bar))!important;width:100%!important;max-width:100%!important;z-index:45;border:0!important}
@@ -3453,7 +3460,7 @@ body[data-dsm-enabled] .dsm-chrome{display:block;font-family:-apple-system,Blink
 .dsm-chrome button:active,.dsm-return:active{background:var(--bt-hover,#ededed)}
 .dsm-chrome button:disabled{opacity:.5;cursor:default}
 .dsm-chrome :focus-visible,.dsm-return:focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}
-.dsm-bar{position:fixed;top:var(--dsm-top,0px);left:0;right:0;height:var(--dsm-bar);padding:calc(8px + env(safe-area-inset-top)) 18px 8px;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:12px;background:var(--dsm-bg);pointer-events:auto;z-index:30;box-sizing:border-box}
+.dsm-bar{position:fixed;top:var(--dsm-top,0px);left:0;right:0;height:var(--dsm-bar);padding:calc(8px + var(--dsm-safe-top)) 18px 8px;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:12px;background:var(--dsm-bg);pointer-events:auto;z-index:30;box-sizing:border-box}
 .dsm-bar>button{display:grid;place-items:center;padding:0;border-radius:50%;height:44px;background:var(--dsm-surface)}
 .dsm-bar>button svg{width:21px;height:21px}
 .dsm-current{min-width:0;text-align:center;font-size:20px;line-height:26px;font-weight:650;letter-spacing:-.4px}

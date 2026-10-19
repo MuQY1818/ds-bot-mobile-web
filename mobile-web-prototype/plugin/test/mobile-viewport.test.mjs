@@ -75,6 +75,24 @@ test('native resize/scroll bursts publish the latest viewport once per animation
   assert.equal(f.effects.length,0);f.controller.close()
 })
 
+test('Home Screen negative insets cannot lift chrome after keyboard dismissal or foreground recovery',()=>{
+  const f=fixture();f.window.navigator={standalone:true}
+  f.viewport.height=932;f.viewport.offsetTop=-59;f.viewport.emit('resize');f.flush()
+  assert.equal(f.style.getPropertyValue('--dsm-top'),'0px')
+  assert.equal(f.style.getPropertyValue('--dsm-height'),'932px')
+  f.document.hidden=true;f.document.emit('visibilitychange')
+  f.document.hidden=false;f.document.emit('visibilitychange');f.flush()
+  assert.equal(f.style.getPropertyValue('--dsm-top'),'0px')
+  f.viewport.height=516;f.viewport.offsetTop=298;f.viewport.emit('resize');f.flush()
+  assert.equal(f.style.getPropertyValue('--dsm-top'),'298px')
+  assert.equal(f.style.getPropertyValue('--dsm-height'),'516px')
+  f.viewport.height=932;f.viewport.offsetTop=-59;f.viewport.emit('resize');f.flush()
+  assert.equal(f.style.getPropertyValue('--dsm-top'),'0px')
+  assert.equal(f.effects.length,0);f.controller.close()
+  const browser=fixture();browser.viewport.offsetTop=-10;browser.viewport.emit('scroll');browser.flush()
+  assert.equal(browser.style.getPropertyValue('--dsm-top'),'-10px');browser.controller.close()
+})
+
 test('a discrete dismissal moves only composer and the pinned chat flow, then removes effects',async()=>{
   const f=fixture();assert.equal(f.controller.beginDismiss(),true)
   f.document.activeElement=null;f.grow()

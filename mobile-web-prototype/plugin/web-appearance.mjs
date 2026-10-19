@@ -38,6 +38,13 @@ export function installMobileBrowserAppearance(window){
     try{enabled=window.localStorage.getItem('dsh-mobile-layout-local.enabled')!=='false'}catch{}
     if(!enabled||!mobile.matches){if(active)restore();return}
     active=true
+    // iOS 27's native soft scroll edge extends below the reported safe area.
+    // Its OS token is frozen at 18.x, so use Safari's Version token instead.
+    // Reserve space for the actual header, not just the status-bar background.
+    const navigator=window.navigator
+    const ios27Home=navigator?.standalone===true&&/iPhone|iPod/.test(navigator.userAgent??'')&&
+      /\bVersion\/27\./.test(navigator.userAgent??'')
+    const edgeInset=ios27Home?'min(24px, env(safe-area-inset-top))':'0px'
     const source=root.dataset.dsThemeSource
     const dark=source==='dark'||source!=='light'&&(document.body?.hasAttribute('data-ds-dark-theme')||system.matches)
     const color=dark?'#141414':'#ffffff',scheme=dark?'dark':'light'
@@ -50,9 +57,8 @@ export function installMobileBrowserAppearance(window){
     // paints an opaque strip from the system appearance instead, which is why a
     // dark app on a light phone showed a white bar.
     meta('apple-mobile-web-app-status-bar-style','black-translucent')
-    // iOS samples fixed elements at the document edge before the app mounts.
-    // Keep this solid strip directly under the body, outside the app's overlay
-    // stacking context, so its scroll-edge blur does not cover header content.
+    // Keep the status-bar color outside the app's replaceable overlay. This
+    // paints the theme background; the header inset handles native edge blur.
     if(window.navigator?.standalone===true&&document.body){
       if(!statusBar||statusBar.parentElement!==document.body){
         statusBar?.remove();statusBar=document.createElement('div')
@@ -62,7 +68,7 @@ export function installMobileBrowserAppearance(window){
       }
       statusBar.style.backgroundColor=color
     }
-    for(const [name,value]of [['background-color',color],['color-scheme',scheme]]){
+    for(const [name,value]of [['background-color',color],['color-scheme',scheme],['--dsm-edge-inset',edgeInset]]){
       if(!styles.has(name))styles.set(name,{value:root.style.getPropertyValue(name),priority:root.style.getPropertyPriority(name)})
       if(root.style.getPropertyValue(name)!==value)root.style.setProperty(name,value)
     }

@@ -14,7 +14,11 @@ export function createMobileViewport({window,document,enabled=()=>true}){
   // viewport here so opening the keyboard still keeps the composer visible.
   const read=()=>({
     height:viewport?.height>0?viewport.height:window.innerHeight,
-    top:number(viewport?.offsetTop,0),
+    // A Home Screen Web App can retain a negative status-bar inset after
+    // dismissing the keyboard, including on relaunch. Fixed layers already
+    // account for that native inset; applying it again lifts the header under
+    // the clock. Positive offsets still follow the keyboard's viewport.
+    top:window.navigator?.standalone===true?Math.max(0,number(viewport?.offsetTop,0)):number(viewport?.offsetTop,0),
     width:viewport?.width>0?viewport.width:window.innerWidth,
     scale:number(viewport?.scale,1),
   })

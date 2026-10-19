@@ -45,6 +45,28 @@ test('ordinary browser pages do not get an iOS Home Screen status background',()
   assert.equal(f.bodyNodes.length,0);owner.close()
 })
 
+test('only iOS 27 iPhone Home Screen reserves native edge space, including frozen OS tokens',()=>{
+  const iphone='Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 Version/27.0 Mobile/15E148 Safari/604.1'
+  for(const [standalone,userAgent,expected]of [
+    [true,iphone,'min(24px, env(safe-area-inset-top))'],
+    [false,iphone,'0px'],
+    [true,iphone.replace('Version/27.0','Version/26.5'),'0px'],
+    [true,iphone.replaceAll('iPhone','iPad'),'0px'],
+    [true,'Mozilla/5.0 (Linux; Android 15) Chrome/127.0.0.0','0px'],
+  ]){
+    const f=fixture();f.window.navigator={standalone,userAgent}
+    f.root.style.setProperty('--dsm-edge-inset','5px','important')
+    const owner=installMobileBrowserAppearance(f.window)
+    assert.equal(f.root.style.getPropertyValue('--dsm-edge-inset'),expected)
+    f.mobile.matches=false;f.mobile.listener()
+    assert.equal(f.root.style.getPropertyValue('--dsm-edge-inset'),'5px')
+    assert.equal(f.root.style.getPropertyPriority('--dsm-edge-inset'),'important')
+    f.mobile.matches=true;f.mobile.listener()
+    assert.equal(f.root.style.getPropertyValue('--dsm-edge-inset'),expected)
+    owner.close();assert.equal(f.root.style.getPropertyValue('--dsm-edge-inset'),'5px')
+  }
+})
+
 test('browser chrome follows explicit and system themes before and after the body appears',()=>{
   const f=fixture();f.window.document.body=null;f.system.matches=true
   const owner=installMobileBrowserAppearance(f.window)
