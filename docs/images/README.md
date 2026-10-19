@@ -1,4 +1,4 @@
-# Documentation screenshots
+# Documentation images
 
 | Image | Source and scope | Privacy treatment |
 | --- | --- | --- |
@@ -8,3 +8,7 @@
 | `conversations.png`, `chat.png`, `group.png` | Actual Web components rendered against an isolated DSH host with example data and mock models. Used in the README and design notes. | Fictional names and conversation content; no user messages or live credentials. |
 
 The captures retain the rendered interface. The table records the privacy edits for each image, including the explicitly documented example QR and host replacement in the full Web sign-in capture. PNG metadata was checked before inclusion. Private reference images and the unredacted originals are not distributed.
+
+## README artwork
+
+`whale-mark.png` is an AI-assisted illustration based on the user-supplied DS Bot whale reference. It is not a product screenshot. See [artwork source, generation method and prompt](branding.md).

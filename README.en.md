@@ -1,12 +1,16 @@
 <div align="center">
 
+<p><img src="docs/images/whale-mark.png" width="360" alt="DS Bot Mobile Web whale and browser-window mark"></p>
+
 <h1>DS Bot Mobile Web</h1>
 
 <p>Continue your Bot and group conversations from a phone browser.</p>
 
-[![CI](https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml?query=branch%3Amain)
-[![Release](https://img.shields.io/github/v/release/MuQY1818/ds-bot-mobile-web?color=2563eb)](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest)
-[![License](https://img.shields.io/github/license/MuQY1818/ds-bot-mobile-web)](LICENSE)
+<p>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml?query=branch%3Amain"><img src="https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest"><img src="https://img.shields.io/github/v/release/MuQY1818/ds-bot-mobile-web?color=2563eb" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/MuQY1818/ds-bot-mobile-web" alt="License"></a>
+</p>
 
 <p><a href="README.md">简体中文</a> · English · <a href="#quick-start">Quick start</a> · <a href="docs/README.md">Documentation</a> · <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases">Downloads</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
 
