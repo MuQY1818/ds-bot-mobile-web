@@ -8,6 +8,8 @@ DS Bot Mobile Web adds phone navigation, a responsive chat layout and QR sign-in
 
 The current release is **0.4.5**, targeting DSH **0.2.1-rc.2** and DS Bot **0.1.7**. This version adds iPhone home-screen launch images and an independent loading layer, retaining persistent code caching, smoother keyboard dismissal and parallel recovery. Web is the primary access path; the native source preview is maintained in [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
 
+The **0.4.6 candidate** on this branch adds a sun/moon toggle that uses the host theme preference and retains the selection after reload. See [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) for published builds.
+
 ## Preview
 
 <p align="center">
@@ -40,7 +42,7 @@ The current release is **0.4.5**, targeting DSH **0.2.1-rc.2** and DS Bot **0.1.
 
 ## Start in three steps
 
-1. **Install on the computer.** Download `ds-bot-mobile-web-0.4.5.tgz` from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases), install and enable it in your existing DSH plugin manager, then refresh.
+1. **Install on the computer.** Download the latest `.tgz` plugin package from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases), install and enable it in your existing DSH plugin manager, then refresh.
 2. **Prepare a reachable endpoint.** Keep the computer and DSH running, and make the configured HTTPS address accessible to the phone. If using Tailscale, connect both devices to the relevant private network. See [network setup](docs/remote-access.md).
 3. **Scan and sign in.** Open **Phone access → Web** on the computer, confirm the endpoint is ready, then scan the QR code and open a conversation in the phone browser.
 

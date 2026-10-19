@@ -2628,6 +2628,141 @@ function createMobileViewport({ window: window2, document: document2, enabled = 
   };
 }
 
+// src/mobile-theme.mjs
+function createMobileTheme({ theme, subscribe, window: window2, document: document2, enabled = () => true }) {
+  const root = document2.documentElement, reduced = window2.matchMedia("(prefers-reduced-motion: reduce)");
+  const listeners = /* @__PURE__ */ new Set();
+  let closed = false, sequence = 0, intent, active = null, fadeTimer = null, animation = null;
+  const snapshot = () => theme.getTheme();
+  const clearVisual = () => {
+    if (fadeTimer !== null) window2.clearTimeout(fadeTimer);
+    fadeTimer = null;
+    animation?.cancel();
+    animation = null;
+    delete root.dataset.dsmThemeEffect;
+  };
+  const cancel = () => {
+    sequence++;
+    intent = void 0;
+    active?.skipTransition();
+    clearVisual();
+  };
+  const allowed = () => enabled() && !document2.hidden && !reduced.matches;
+  const canReveal = () => {
+    if (typeof document2.startViewTransition !== "function" || typeof root.animate !== "function" || !window2.CSS?.supports?.("clip-path", "circle(1px)")) return false;
+    try {
+      return new window2.KeyframeEffect(root, [], { pseudoElement: "::view-transition-new(root)" }).pseudoElement === "::view-transition-new(root)";
+    } catch {
+      return false;
+    }
+  };
+  const fade = (target) => {
+    root.dataset.dsmThemeEffect = "fade";
+    window2.getComputedStyle(document2.body).backgroundColor;
+    theme.setTheme(target);
+    fadeTimer = window2.setTimeout(clearVisual, 200);
+  };
+  const off = subscribe(() => {
+    for (const listener of listeners) listener();
+  });
+  const visibility = () => {
+    if (document2.hidden) cancel();
+  };
+  const motion = () => {
+    if (!reduced.matches) return;
+    const target = intent;
+    cancel();
+    if (target !== void 0) theme.setTheme(target);
+  };
+  document2.addEventListener("visibilitychange", visibility);
+  reduced.addEventListener("change", motion);
+  return {
+    snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    toggle(button) {
+      if (closed || !enabled()) return;
+      const target = (intent ?? snapshot().active.colorScheme) === "dark" ? "light" : "dark";
+      intent = target;
+      const id = ++sequence;
+      if (active || fadeTimer !== null) {
+        active?.skipTransition();
+        clearVisual();
+        theme.setTheme(target);
+        intent = void 0;
+        return;
+      }
+      if (!allowed()) {
+        theme.setTheme(target);
+        intent = void 0;
+        return;
+      }
+      if (!canReveal()) {
+        fade(target);
+        intent = void 0;
+        return;
+      }
+      const bounds = button?.getBoundingClientRect();
+      const x = bounds ? bounds.left + bounds.width / 2 : window2.innerWidth / 2;
+      const y = bounds ? bounds.top + bounds.height / 2 : window2.innerHeight / 2;
+      const radius = Math.hypot(Math.max(x, window2.innerWidth - x), Math.max(y, window2.innerHeight - y));
+      root.dataset.dsmThemeEffect = "reveal";
+      let transition;
+      try {
+        transition = document2.startViewTransition(() => {
+          if (closed || id !== sequence) return;
+          theme.setTheme(target);
+          intent = void 0;
+        });
+        active = transition;
+      } catch {
+        clearVisual();
+        fade(target);
+        intent = void 0;
+        return;
+      }
+      transition.updateCallbackDone.catch(() => {
+      });
+      transition.ready.then(() => {
+        if (closed || id !== sequence || !allowed()) {
+          transition.skipTransition();
+          return;
+        }
+        try {
+          animation = root.animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+            { duration: 300, easing: "cubic-bezier(.22,.7,.25,1)", pseudoElement: "::view-transition-new(root)" }
+          );
+          animation.finished.catch(() => {
+          });
+        } catch {
+          transition.skipTransition();
+        }
+      }).catch(() => {
+      });
+      transition.finished.catch(() => {
+      }).then(() => {
+        if (active === transition) {
+          active = null;
+          clearVisual();
+        }
+      });
+    },
+    cancel,
+    close() {
+      if (closed) return;
+      closed = true;
+      cancel();
+      off();
+      listeners.clear();
+      document2.removeEventListener("visibilitychange", visibility);
+      reduced.removeEventListener("change", motion);
+    }
+  };
+}
+
 // web-startup.mjs
 async function clearMobileAssetCache(environment) {
   try {
@@ -3083,6 +3218,7 @@ html:has(>body[data-dsm-enabled]){height:100%;overflow:hidden;overscroll-behavio
 body[data-dsm-enabled]{--dsm-bg:var(--bt-main,#fff);--dsm-ink:var(--bt-ink,#141414);--dsm-secondary:var(--bt-ink-2,#666);--dsm-line:var(--bt-line,#eaeaea);--dsm-surface:var(--bt-bubble,#f1f1f1);--dsm-bar:calc(68px + env(safe-area-inset-top));--dsm-tab-height:calc(66px + env(safe-area-inset-bottom));--dsh-content-font-size:17px!important;position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
 body[data-dsm-enabled]:not([data-ds-dark-theme]){--bt-main:#fff;--bt-bubble:#f2f2f2;--bt-sidebar:#f7f7f7;--bt-user:#070707;--bt-user-ink:#fff;--bt-ink:#141414;--bt-ink-2:#686868}
 body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929;--bt-user:#f2f2f2;--bt-user-ink:#141414}
+html[data-dsm-theme-effect=fade] body[data-dsm-enabled] :is(.dsm-bar,.dsm-home,.dsm-tabs,.dsm-search,.dsm-chrome button,.dsm-current,.dsm-row-copy small,.bt-bubble,.bt-ubody,[data-composer-card]){transition:background-color 200ms ease-out,color 200ms ease-out,border-color 200ms ease-out}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay]){position:fixed!important;inset:var(--dsm-top,0px) 0 auto!important;height:var(--dsm-height,100dvh)!important;box-sizing:border-box!important;padding-top:var(--dsm-bar)!important;grid-template-columns:0 minmax(0,1fr) 0!important;grid-template-rows:minmax(0,1fr)!important;transition:none!important;background:var(--dsm-bg)}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_sidebarCol"],body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-side]{display:none!important}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_centerCol"]{grid-column:2!important;grid-row:1!important;min-width:0!important;background:var(--dsm-bg)!important}
@@ -3175,6 +3311,10 @@ body[data-dsm-enabled] .dsm-chrome{display:block;font-family:-apple-system,Blink
 .dsm-return{display:block;position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:12px;background:var(--bt-main,#fff);color:var(--bt-ink,#141414);border:1px solid var(--bt-line-2,#ddd);border-radius:99px;pointer-events:auto;z-index:30;font-size:14px}
 .dsm-sr{position:absolute;width:1px;height:1px;padding:0;clip:rect(0,0,0,0);overflow:hidden;white-space:nowrap}
 }
+html[data-dsm-theme-effect=reveal]::view-transition-old(root),html[data-dsm-theme-effect=reveal]::view-transition-new(root){animation:none;mix-blend-mode:normal}
+html[data-dsm-theme-effect=reveal]::view-transition-image-pair(root){isolation:auto}
+html[data-dsm-theme-effect=reveal]::view-transition-old(root){z-index:1}
+html[data-dsm-theme-effect=reveal]::view-transition-new(root){z-index:2}
 @media(prefers-reduced-motion:reduce){.dsm-chrome *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 `;
 
@@ -4379,11 +4519,19 @@ function RoomAvatar({ room, roster, size = 36 }) {
 }
 
 // src/client.mjs
-var inject = ["slots", "uiWorkspace", "sessions", "connection", "configForms"];
+var inject = ["slots", "uiWorkspace", "sessions", "connection", "configForms", "theme"];
 var connectionLabel = (state) => state === "connected" ? "已连接" : state === "disconnected" ? "已离线" : "正在连接";
 var iconPaths = { chat: ["M5 4h14v11H9l-4 4V4Z"], team: ["M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M16 4a4 4 0 0 1 0 8", "M22 20v-2a4 4 0 0 0-3-3.87", "M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"], settings: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8", "M12 2v2", "M12 20v2", "M2 12h2", "M20 12h2", "m5 5 1.5 1.5", "m17.5 17.5 1.5 1.5", "m5 19 1.5-1.5", "m17.5 6.5 1.5-1.5"], connection: ["M3 9a15 15 0 0 1 18 0", "M6 12a10 10 0 0 1 12 0", "M9 15a5 5 0 0 1 6 0", "M12 19h.01"], back: ["m14 5-7 7 7 7"], search: ["M21 21l-5-5", "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0"] };
 function Icon({ name }) {
   return (0, import_react4.createElement)("svg", { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...(iconPaths[name] || []).map((d, i) => (0, import_react4.createElement)("path", { d, key: i })));
+}
+function ThemeIcon({ dark }) {
+  return dark ? (0, import_react4.createElement)(
+    "svg",
+    { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    (0, import_react4.createElement)("circle", { cx: 12, cy: 12, r: 4 }),
+    (0, import_react4.createElement)("path", { d: "M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5" })
+  ) : (0, import_react4.createElement)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, (0, import_react4.createElement)("path", { d: "M20.8 13.2A8.8 8.8 0 0 1 10.8 3.2 8.8 8.8 0 1 0 20.8 13.2Z" }));
 }
 function Mascot({ item, items, size = 48 }) {
   if (item.kind === "room") return (0, import_react4.createElement)(RoomAvatar, { room: item, roster: { byId: Object.fromEntries(items.filter((x) => x.kind === "bot").map((x) => [x.id, x])) }, size });
@@ -4396,7 +4544,7 @@ function MobileSettings({ preference, access, view }) {
     "div",
     null,
     (0, import_react4.createElement)("label", null, (0, import_react4.createElement)("input", { type: "checkbox", "aria-label": "启用手机布局", checked: enabled, onChange: (event) => preference.set(event.target.checked) }), " 启用手机布局"),
-    (0, import_react4.createElement)("p", null, "界面偏好仅保存在当前浏览器。"),
+    (0, import_react4.createElement)("p", null, "手机布局开关仅保存在当前浏览器。"),
     (0, import_react4.createElement)("button", { type: "button", onClick: access.open }, "手机访问")
   );
 }
@@ -4409,9 +4557,11 @@ function ComposerKeyboard({ sessionId, useSession, keyboardActive, keyboardDismi
   }, [sessionId, submissions]);
   return (0, import_react4.createElement)("span", { ref: anchor, hidden: true, "aria-hidden": true });
 }
-function MobileChrome({ controller, preference }) {
+function MobileChrome({ controller, preference, appearance }) {
   const state = (0, import_react4.useSyncExternalStore)(controller.subscribe, controller.snapshot, controller.snapshot);
   const enabled = (0, import_react4.useSyncExternalStore)(preference.subscribe, preference.snapshot, preference.snapshot);
+  const theme = (0, import_react4.useSyncExternalStore)(appearance.subscribe, appearance.snapshot, appearance.snapshot);
+  const dark = theme.active.colorScheme === "dark", themeLabel = dark ? "切换到日间模式" : "切换到夜间模式";
   const setEnabled = (value) => preference.set(value);
   (0, import_react4.useLayoutEffect)(() => {
     if (enabled) {
@@ -4451,7 +4601,7 @@ function MobileChrome({ controller, preference }) {
     (0, import_react4.createElement)(
       "header",
       { className: "dsm-bar" },
-      isChat ? (0, import_react4.createElement)("button", { onClick: () => controller.home(), "aria-label": "返回会话列表" }, (0, import_react4.createElement)(Icon, { name: "back" })) : (0, import_react4.createElement)("button", { className: "dsm-profile", onClick: () => controller.selectTab("connection"), "aria-label": "查看连接与界面" }, (0, import_react4.createElement)(Icon, { name: "settings" })),
+      isChat ? (0, import_react4.createElement)("button", { onClick: () => controller.home(), "aria-label": "返回会话列表" }, (0, import_react4.createElement)(Icon, { name: "back" })) : (0, import_react4.createElement)("button", { className: "dsm-theme-toggle", type: "button", onClick: (event) => appearance.toggle(event.currentTarget), "aria-label": themeLabel, title: themeLabel }, (0, import_react4.createElement)(ThemeIcon, { dark })),
       (0, import_react4.createElement)("div", { className: "dsm-current" }, isChat ? (0, import_react4.createElement)("span", { className: "dsm-title-mascot" }, state.items.find((x) => x.id === state.active?.id) ? (0, import_react4.createElement)(Mascot, { item: state.items.find((x) => x.id === state.active.id), items: state.items, size: 28 }) : null, state.active?.name || "当前会话") : titles[state.tab], (0, import_react4.createElement)("span", { "data-connected": state.connected, role: "status" }, status)),
       isChat ? (0, import_react4.createElement)("span", { className: "dsm-header-spacer", "aria-hidden": true }) : (0, import_react4.createElement)("button", { onClick: () => {
         if (state.tab === "connection") controller.selectTab("chats");
@@ -4497,9 +4647,11 @@ function apply(ctx) {
   const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
   let suspended = false, viewport;
   const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && !suspended;
+  const appearance = createMobileTheme({ theme: ctx.theme, subscribe: (listener) => ctx.on("theme/change", listener), window, document, enabled: mobileActive });
   const keyboardActive = () => mobileActive() && controller.snapshot().page === "chat";
   const keyboardDismiss = () => viewport?.beginDismiss();
   ctx.effect(() => () => {
+    appearance.close();
     access.dispose();
     phone.dispose();
   });
@@ -4525,6 +4677,7 @@ function apply(ctx) {
     };
     const poll = () => polling.sync();
     const offPreference = preference.subscribe(() => {
+      appearance.cancel();
       viewport.sync();
       cacheMode();
       poll();
@@ -4605,7 +4758,7 @@ function apply(ctx) {
       delete document.body.dataset.dsmPage;
     };
   });
-  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference }) }, MobileChrome));
+  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-layout-local", order: 40, inject: () => ({ controller, preference, appearance }) }, MobileChrome));
   ctx.slots.inject("conversation.input.right", () => ctx.slots.register({ name: "conversation.input.right", id: "mobile-composer-keyboard", order: 1e3, inject: () => ({ keyboardActive, keyboardDismiss }) }, ComposerKeyboard));
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "mobile-phone-access", order: 41, inject: () => ({ access }) }, MobileAccessHost));
   ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "ds-bot-mobile-web", inject: () => ({ preference, access }) }, MobileSettings));

@@ -205,6 +205,8 @@ html[data-dsm-boot=leaving] #dsm-boot{opacity:0;pointer-events:none}
 @media(max-width:767px),(max-width:1024px) and (max-height:500px){html[data-dsm-boot] #dsm-boot{display:flex}}
 @keyframes dsm-start-spin{to{transform:rotate(360deg)}}
 @media(prefers-color-scheme:dark){html[data-dsm-boot]{--dsm-boot-bg:#141414;--dsm-boot-ink:#aaa;--dsm-boot-ring:#343434;--dsm-boot-active:#e5e5e5}}
+html[data-ds-theme-source=light][data-dsm-boot]{--dsm-boot-bg:#fff;--dsm-boot-ink:#666;--dsm-boot-ring:#e9e9e9;--dsm-boot-active:#202020}
+html[data-ds-theme-source=dark][data-dsm-boot]{--dsm-boot-bg:#141414;--dsm-boot-ink:#aaa;--dsm-boot-ring:#343434;--dsm-boot-active:#e5e5e5}
 @media(prefers-reduced-motion:reduce){#dsm-boot{transition:none}#dsm-boot .dsm-boot-spinner{animation:none}}
 </style>`
   // The loading surface belongs to the document, outside React's replaceable root.

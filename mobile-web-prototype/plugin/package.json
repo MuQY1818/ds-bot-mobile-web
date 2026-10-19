@@ -1,6 +1,6 @@
 {
   "name": "ds-bot-mobile-web",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "DS Bot Mobile Web — mobile conversations and secure QR access for your existing DS Bot team",
   "private": true,
   "type": "module",

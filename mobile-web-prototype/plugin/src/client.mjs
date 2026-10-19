@@ -5,6 +5,7 @@ import {createLayoutPreference} from './preference.mjs'
 import {createRefreshLoop} from './refresh-loop.mjs'
 import {createComposerKeyboard} from './composer-keyboard.mjs'
 import {createMobileViewport} from './mobile-viewport.mjs'
+import {createMobileTheme} from './mobile-theme.mjs'
 import {clearMobileAssetCache} from '../web-startup.mjs'
 import {createPhoneController} from './phone-controller.mjs'
 import {WebAccessPanel} from './phone-access.mjs'
@@ -14,10 +15,15 @@ import phoneCss from './phone.css'
 import css from './mobile.css'
 import {BotAvatar,RoomAvatar,botState} from '../../../ds-bot-upstream/ds-bot/src/client/mark.js'
 
-export const inject=['slots','uiWorkspace','sessions','connection','configForms']
+export const inject=['slots','uiWorkspace','sessions','connection','configForms','theme']
 const connectionLabel=state=>state==='connected'?'已连接':state==='disconnected'?'已离线':'正在连接'
 const iconPaths={chat:['M5 4h14v11H9l-4 4V4Z'],team:['M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2','M16 4a4 4 0 0 1 0 8','M22 20v-2a4 4 0 0 0-3-3.87','M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0'],settings:['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8','M12 2v2','M12 20v2','M2 12h2','M20 12h2','m5 5 1.5 1.5','m17.5 17.5 1.5 1.5','m5 19 1.5-1.5','m17.5 6.5 1.5-1.5'],connection:['M3 9a15 15 0 0 1 18 0','M6 12a10 10 0 0 1 12 0','M9 15a5 5 0 0 1 6 0','M12 19h.01'],back:['m14 5-7 7 7 7'],search:['M21 21l-5-5','M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0']}
 function Icon({name}){return h('svg',{viewBox:'0 0 24 24',width:24,height:24,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},...(iconPaths[name]||[]).map((d,i)=>h('path',{d,key:i})))}
+function ThemeIcon({dark}){
+  return dark?h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+    h('circle',{cx:12,cy:12,r:4}),h('path',{d:'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5'})):
+    h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'M20.8 13.2A8.8 8.8 0 0 1 10.8 3.2 8.8 8.8 0 1 0 20.8 13.2Z'}))
+}
 function Mascot({item,items,size=48}){
   if(item.kind==='room')return h(RoomAvatar,{room:item,roster:{byId:Object.fromEntries(items.filter(x=>x.kind==='bot').map(x=>[x.id,x]))},size})
   return h(BotAvatar,{bot:item,size,state:botState(item.running,item.activity,item.alert),main:item.isMain,live:true,gaze:size>=60})
@@ -27,7 +33,7 @@ export function MobileSettings({preference,access,view}){
   if(view==='summary')return '手机会话界面与扫码登录入口。'
   return h('div',null,
     h('label',null,h('input',{type:'checkbox','aria-label':'启用手机布局',checked:enabled,onChange:event=>preference.set(event.target.checked)}),' 启用手机布局'),
-    h('p',null,'界面偏好仅保存在当前浏览器。'),
+    h('p',null,'手机布局开关仅保存在当前浏览器。'),
     h('button',{type:'button',onClick:access.open},'手机访问'))
 }
 export function ComposerKeyboard({sessionId,useSession,keyboardActive,keyboardDismiss}){
@@ -37,9 +43,11 @@ export function ComposerKeyboard({sessionId,useSession,keyboardActive,keyboardDi
   useLayoutEffect(()=>{state.current.observer.update(submissions)},[sessionId,submissions])
   return h('span',{ref:anchor,hidden:true,'aria-hidden':true})
 }
-export function MobileChrome({controller,preference}){
+export function MobileChrome({controller,preference,appearance}){
   const state=useSyncExternalStore(controller.subscribe,controller.snapshot,controller.snapshot)
   const enabled=useSyncExternalStore(preference.subscribe,preference.snapshot,preference.snapshot)
+  const theme=useSyncExternalStore(appearance.subscribe,appearance.snapshot,appearance.snapshot)
+  const dark=theme.active.colorScheme==='dark',themeLabel=dark?'切换到日间模式':'切换到夜间模式'
   const setEnabled=value=>preference.set(value)
   useLayoutEffect(()=>{
     if(enabled){document.body.dataset.dsmEnabled='true';document.body.dataset.dsmPage=state.page}
@@ -62,7 +70,7 @@ export function MobileChrome({controller,preference}){
     h('span',{className:'dsm-row-status','data-running':item.running||undefined,'aria-label':item.running?'正在工作':undefined},item.running?h('span',null):null))
   return h('div',{className:'dsm-chrome'},
     h('header',{className:'dsm-bar'},
-      isChat?h('button',{onClick:()=>controller.home(),'aria-label':'返回会话列表'},h(Icon,{name:'back'})):h('button',{className:'dsm-profile',onClick:()=>controller.selectTab('connection'),'aria-label':'查看连接与界面'},h(Icon,{name:'settings'})),
+      isChat?h('button',{onClick:()=>controller.home(),'aria-label':'返回会话列表'},h(Icon,{name:'back'})):h('button',{className:'dsm-theme-toggle',type:'button',onClick:event=>appearance.toggle(event.currentTarget),'aria-label':themeLabel,title:themeLabel},h(ThemeIcon,{dark})),
       h('div',{className:'dsm-current'},isChat?h('span',{className:'dsm-title-mascot'},state.items.find(x=>x.id===state.active?.id)?h(Mascot,{item:state.items.find(x=>x.id===state.active.id),items:state.items,size:28}):null,state.active?.name||'当前会话'):titles[state.tab],h('span',{'data-connected':state.connected,role:'status'},status)),
       isChat?h('span',{className:'dsm-header-spacer','aria-hidden':true}):h('button',{onClick:()=>{if(state.tab==='connection')controller.selectTab('chats');requestAnimationFrame(()=>document.getElementById('dsm-search')?.focus())},'aria-label':'搜索会话'},h(Icon,{name:'search'}))),
     state.error?h('div',{className:'dsm-error',role:'status'},state.error,h('button',{onClick:controller.restore},'重试')):null,
@@ -93,9 +101,10 @@ export function apply(ctx){
   const mobileMedia=window.matchMedia('(max-width:767px), (max-width:1024px) and (max-height:500px)')
   let suspended=false,viewport
   const mobileActive=()=>preference.snapshot()&&mobileMedia.matches&&!document.hidden&&!suspended
+  const appearance=createMobileTheme({theme:ctx.theme,subscribe:listener=>ctx.on('theme/change',listener),window,document,enabled:mobileActive})
   const keyboardActive=()=>mobileActive()&&controller.snapshot().page==='chat'
   const keyboardDismiss=()=>viewport?.beginDismiss()
-  ctx.effect(()=>()=>{access.dispose();phone.dispose()})
+  ctx.effect(()=>()=>{appearance.close();access.dispose();phone.dispose()})
   ctx.effect(()=>{
     const style=document.createElement('style');style.dataset.mobileLayout='local';style.textContent=css+'\n'+phoneCss;document.head.append(style)
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
@@ -106,7 +115,7 @@ export function apply(ctx){
     const cacheMode=()=>{controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden);if(!preference.snapshot())void clearMobileAssetCache(window)}
     const delayCacheRelease=()=>{clearTimeout(cacheRelease);cacheRelease=setTimeout(()=>controller.setCacheEnabled(false),30000)}
     const poll=()=>polling.sync()
-    const offPreference=preference.subscribe(()=>{viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()})
+    const offPreference=preference.subscribe(()=>{appearance.cancel();viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()})
     const recover=()=>{clearTimeout(cacheRelease);viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()}
     const mediaChange=()=>{viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()}
     const visible=()=>{if(document.hidden){suspended=true;controller.pauseWarmup();poll();delayCacheRelease()}else if(suspended){suspended=false;recover()}}
@@ -128,7 +137,7 @@ export function apply(ctx){
       delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage
     }
   })
-  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference})},MobileChrome))
+  ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-layout-local',order:40,inject:()=>({controller,preference,appearance})},MobileChrome))
   ctx.slots.inject('conversation.input.right',()=>ctx.slots.register({name:'conversation.input.right',id:'mobile-composer-keyboard',order:1000,inject:()=>({keyboardActive,keyboardDismiss})},ComposerKeyboard))
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'mobile-phone-access',order:41,inject:()=>({access})},MobileAccessHost))
   ctx.slots.inject('plugins.bundle.config',()=>ctx.slots.register({name:'plugins.bundle.config',key:'ds-bot-mobile-web',inject:()=>({preference,access})},MobileSettings))

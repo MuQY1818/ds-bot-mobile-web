@@ -8,6 +8,8 @@ DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai
 
 当前已发布版本 **0.4.5**，适配 DSH **0.2.1-rc.2** 与 DS Bot **0.1.7**。本版增加 iPhone 桌面启动画面和独立加载层，保留大型代码缓存、发送后的键盘过渡与并行恢复。项目以 Web 为主要使用入口；原生客户端另见 [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)。
 
+本分支的 **0.4.6 候选**增加日夜切换：主页左上角太阳／月亮按钮沿用宿主外观偏好，刷新后保持选择。发布状态以 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 为准。
+
 ## 界面预览
 
 <p align="center">
@@ -40,7 +42,7 @@ DS Bot Mobile Web 为已有的 [DeepSeek Harness](https://github.com/deepseek-ai
 
 ## 三步开始
 
-1. **安装到电脑**：从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 下载 `ds-bot-mobile-web-0.4.5.tgz`，在现有 DSH 插件管理器安装并启用，刷新页面。
+1. **安装到电脑**：从 [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases) 下载最新 Release 的 `.tgz` 插件包，在现有 DSH 插件管理器安装并启用，刷新页面。
 2. **准备手机入口**：保持电脑和 DSH 运行，确认手机能访问已配置的 HTTPS 地址。使用 Tailscale 时，两端都要连接对应私网。配置方法见[网络连接](docs/remote-access.md)。
 3. **扫码登录**：在电脑选择 **手机访问 → Web**，确认入口就绪后扫码，在手机浏览器中打开会话。
 

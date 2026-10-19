@@ -2,9 +2,11 @@
 
 为现有 DSH / DS Bot 增加手机浏览器界面。电脑安装插件，手机通过浏览器访问同一支团队；无需原生 App 或 Mobile Bridge。
 
+0.4.6 增加主页左上角日夜切换，复用宿主外观偏好，刷新后保持选择；连接设置仍在底部“连接”。浏览器支持时从按钮位置展开新主题，系统开启减少动态效果时立即切换。
+
 ## 安装与连接
 
-1. 从[发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases)下载 `ds-bot-mobile-web-0.4.5.tgz`，在现有 DSH 插件管理器安装并启用。
+1. 从[发布页](https://github.com/MuQY1818/ds-bot-mobile-web/releases)下载最新 Release 的 `.tgz` 插件包，在现有 DSH 插件管理器安装并启用。
 2. 准备手机可达的 HTTPS 入口，保持电脑和 DSH 运行；使用私网时，两端都要连入对应网络。
 3. 在电脑账户菜单打开 **手机访问 → Web**，确认入口就绪后扫码登录。
 
