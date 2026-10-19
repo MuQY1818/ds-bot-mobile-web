@@ -1,88 +1,124 @@
-# DS Bot Mobile Web
+<div align="center">
 
-Continue your existing Bot conversations from a phone browser.
+<h1>DS Bot Mobile Web</h1>
 
-[简体中文](README.md) · [Installation](docs/installation.md) · [Usage](docs/usage.md) · [Downloads](https://github.com/MuQY1818/ds-bot-mobile-web/releases) · [Issues](https://github.com/MuQY1818/ds-bot-mobile-web/issues)
+<p>Continue your Bot and group conversations from a phone browser.</p>
 
-DS Bot Mobile Web adds phone navigation, a responsive chat layout and QR sign-in to an existing [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) and [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) installation. Install the plugin on the computer and use a browser on the phone. A native App and Mobile Bridge are not required.
+[![CI](https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/MuQY1818/ds-bot-mobile-web/actions/workflows/check.yml?query=branch%3Amain)
+[![Release](https://img.shields.io/github/v/release/MuQY1818/ds-bot-mobile-web?color=2563eb)](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest)
+[![License](https://img.shields.io/github/license/MuQY1818/ds-bot-mobile-web)](LICENSE)
 
-The current version is **0.4.6**, targeting DSH **0.2.1-rc.2** and DS Bot **0.1.7**. A persistent sun/moon toggle adds a short theme transition, with readable controls and correctly colored mascots, badges and group avatars in both themes. Home-screen launch images, independent loading feedback, code caching and keyboard dismissal improvements are retained. Web is the primary access path; the native source preview is maintained in [DS Bot Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app).
+<p><a href="README.md">简体中文</a> · English · <a href="#quick-start">Quick start</a> · <a href="docs/README.md">Documentation</a> · <a href="https://github.com/MuQY1818/ds-bot-mobile-web/releases">Downloads</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
+
+</div>
+
+DS Bot Mobile Web adds phone navigation, a responsive chat layout and QR sign-in to an existing [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) and [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) installation. The plugin runs on your computer; the phone uses your existing team through a browser. Message rendering, composition and streaming remain with the host.
+
+**Built for phone browsers and home-screen access.** No native App build, Mobile Bridge or App companion is required. Your computer, DSH and network endpoint must remain available.
 
 ## Preview
 
 <p align="center">
-  <img src="docs/images/conversations.png" width="230" alt="Running Mobile Web conversation list with example data">
-  <img src="docs/images/chat.png" width="230" alt="Running Mobile Web direct chat with example data and a mock model">
-  <img src="docs/images/group.png" width="230" alt="Running Mobile Web group chat with example data and mock models">
+  <img src="docs/images/conversations.png" width="230" alt="Mobile Web conversation list with example Bots, characters and search">
+  <img src="docs/images/chat.png" width="230" alt="Mobile Web direct chat with example messages and a mock model">
+  <img src="docs/images/group.png" width="230" alt="Mobile Web group chat with member attribution and example messages">
 </p>
 
-*Conversation list, direct chat and group chat captured from the actual plugin running in an isolated DSH / DS Bot host, with example data and mock models. The interface was not redrawn. These are 390px responsive browser captures, not iPhone Safari screenshots. See [design and screenshot provenance](docs/design.md).*
+<p align="center"><em>Conversations · Direct chat · Group chat</em></p>
+
+These captures show the actual Web components in an isolated DSH / DS Bot host, with example data and mock models. They are 390px responsive browser captures, not physical iPhone Safari acceptance. See [image provenance](docs/images/README.md) and [design notes](docs/design.md) for the pictured layout versions and subsequent theme changes.
 
 <details>
-  <summary>Desktop phone access: deployed interface</summary>
+  <summary><strong>Desktop: the shared phone-access entry</strong></summary>
 
 <p align="center">
-  <img src="docs/images/phone-access-window.png" width="960" alt="Full desktop window showing the shared phone-access entry with the App tab selected">
+  <img src="docs/images/phone-access-window.png" width="960" alt="User-approved full desktop window showing the shared phone-access dialog with its App tab selected">
 </p>
 
-*The shared phone-access entry with the **App** tab selected. This full-window capture retains its blurred background and shows no pairing QR or access credentials. Browser sign-in is available from the Web tab in the same dialog.*
+This user-approved image retains its original blurred background and displays no pairing QR or access credentials. The **App** tab is selected; browser sign-in is on the **Web** tab of the same dialog. The shared dialog does not make the App companion a Web dependency.
 
 </details>
 
-## Features
+## Made for phone use
 
-- Search and open existing Bots and groups, with character avatars and work status.
-- Reuse the DS Bot renderer and composer, including streaming replies, group authorship, tool results and host-supported cards.
-- Obtain browser sign-in from **Phone access → Web** in the desktop account menu.
-- Dismiss the phone keyboard when a valid send starts. Shift+Enter still inserts a newline; wide desktop layouts retain composer focus.
-- Retain recent conversations briefly within the current page and pause extra mobile metadata polling on desktop or in the background.
-- Share the phone-access dialog with the optional App companion while keeping each plugin independently managed.
-
-## Start in three steps
-
-1. **Install on the computer.** Download the latest `.tgz` plugin package from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases), install and enable it in your existing DSH plugin manager, then refresh.
-2. **Prepare a reachable endpoint.** Keep the computer and DSH running, and make the configured HTTPS address accessible to the phone. If using Tailscale, connect both devices to the relevant private network. See [network setup](docs/remote-access.md).
-3. **Scan and sign in.** Open **Phone access → Web** on the computer, confirm the endpoint is ready, then scan the QR code and open a conversation in the phone browser.
-
-The [installation guide](docs/installation.md) covers upgrades, old-package migration and rollback. Choose the plugin `.tgz` release asset for installation; GitHub source archives are for development.
-
-## Everyday use
-
-Bookmark the ordinary endpoint or [add it to the home screen](docs/usage.md#添加到手机桌面). The computer must remain awake with DSH running. If sign-in expires, obtain a new sign-in QR on the computer.
-
-A home-screen shortcut is not an offline App. Cached static assets can be reused on later launches. A discarded page or a long background period still requires connection and history recovery. See the [FAQ](docs/faq.md) for current cache and sign-in behavior.
-
-## Platforms and components
-
-| Access path | Phone | Computer components |
-| --- | --- | --- |
-| **Mobile Web, primary path** | Modern browsers such as Safari on iPhone and Chrome on Android | DSH, DS Bot and `ds-bot-mobile-web` |
-| Native source preview | A self-built iOS / Android client | Compatible DS Bot, App companion and Mobile Bridge |
-
-Not every browser/device combination has completed acceptance testing. Safari backgrounding, network transitions and home-screen cold starts still need work. Public ready-to-install IPA/APK files are not available.
-
-The three computer plugins have separate roles: Web supplies browser access; `ds-bot-mobile-app` supplies native pairing/device management; `ds-bot-mobile-bridge` supplies device authentication and transport. Web users need only the Web plugin.
-
-## Documentation
-
-The detailed guides are in Simplified Chinese.
-
-| Guide | Topic |
+| Capability | What it does |
 | --- | --- |
-| [Installation](docs/installation.md) | Installation, sign-in, updates, migration and rollback |
-| [Usage](docs/usage.md) | Conversations, sending and home-screen shortcuts |
-| [FAQ](docs/faq.md) | Caching, sleep and Web versus App |
-| [Troubleshooting](docs/troubleshooting.md) | Connectivity, authentication, missing entry and slow loading |
-| [Network setup](docs/remote-access.md) | HTTPS, private networking and host configuration |
-| [Status](docs/status.md) | Released capabilities and current limitations |
-| [Changelog](CHANGELOG.md) | User-visible changes |
+| **Conversations and teams** | Search and open existing Bots and groups, with character avatars, group avatars and work status. |
+| **Host chat components** | Reuse DS Bot rendering and composition, including streaming, group authorship, tool results and host-supported cards. |
+| **Desktop QR sign-in** | Open **Phone access → Web** on the computer. DSH generates a browser sign-in link for the configured HTTPS endpoint. |
+| **Phone input and scrolling** | Dismiss the keyboard when a valid send starts; Shift+Enter inserts a newline. Lock the outer page while chat, settings and multiline input scroll independently. |
+| **Bounded caching and launch feedback** | Retain recent conversation references briefly, cache eligible static code, and show an independent loader plus iPhone launch images. |
+| **Persistent light and dark themes** | Reuse the host preference through a sun/moon toggle, with transitions, reduced-motion support and character colors independent of the original Bot styles. |
 
-Developers can use the [contribution guide](CONTRIBUTING.md), [architecture](docs/architecture.md) and [validation record](docs/validation.md). The source uses Node.js 24. Build and release checks are development tasks, not prerequisites for using the phone interface.
+**Current release: 0.4.6.** The current compatibility target is DSH `0.2.1-rc.2` / DS Bot `0.1.7`. Chat capabilities depend on that host combination; keyboard behavior, background recovery and network changes vary between browsers. See [status](docs/status.md), the [0.4.6 notes](docs/releases/v0.4.6.md) and [validation](docs/validation.md).
 
-## Access and privacy
+## Quick start
 
-Sign-in QR codes and full sign-in links carry access credentials; share them only with your own devices. Include device, browser, version and reproduction steps in bug reports, and remove QR codes, sign-in URLs and private conversations. The plugin does not provision public endpoints or change network settings.
+### 1. Install the Web plugin on your computer
 
-## License and provenance
+Start with a working DSH and DS Bot installation where your existing team is usable.
 
-[Apache License 2.0](LICENSE). Character components come from a pinned [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) revision. Copyright and dependency notices remain in [NOTICE](NOTICE) and the [plugin NOTICE](mobile-web-prototype/plugin/NOTICE). This independent community project is not affiliated with DeepSeek.
+Download the plugin `.tgz` from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest). The current asset is **`ds-bot-mobile-web-0.4.6.tgz`**. Install and enable it in your existing DSH plugin manager, then refresh. Restart the same host when prompted.
+
+GitHub's automatically generated “Source code” archives are for development. The phone does not download or unpack the plugin.
+
+### 2. Make your HTTPS endpoint reachable
+
+Reuse an existing HTTPS endpoint and keep the computer awake. If using Tailscale or another private network, connect both devices to the appropriate network. The computer's `localhost` / `127.0.0.1` address cannot be used directly on a phone.
+
+If you need an endpoint, follow [network and sign-in setup](docs/remote-access.md). The plugin supplies the mobile interface and sign-in entry; it does not create a tunnel or alter host trust settings.
+
+### 3. Scan and open an existing conversation
+
+On the computer, choose **Phone access → Web** from the DS Bot account menu. Once the endpoint is ready, scan the QR code or transfer the sign-in link privately to your phone. Sign in using the intended browser. If the menu is unavailable, open the same dialog from the official plugin configuration page.
+
+Open an existing Bot or group to continue using your team. Bookmark the ordinary endpoint, or follow the [home-screen instructions](docs/usage.md#添加到手机桌面) for iPhone / Android.
+
+> Browser sign-in and native App pairing use different QR codes. Sign-in QR codes and full sign-in links carry access credentials; share them only with your own devices.
+
+The [installation guide](docs/installation.md) covers updates, rollback and migration from the old package name. For timeouts, authentication or slow history, use [troubleshooting](docs/troubleshooting.md).
+
+## Caching and connectivity
+
+- **Returning to a conversation:** the current page retains references for up to 3 recent conversations, with a 5-minute retention window. Each open still confirms the current session and access with the host.
+- **Launching again:** eligible static assets can be reused from browser storage, while the loader provides feedback. Pages, sign-in responses and chat APIs are excluded from that static cache.
+- **A discarded page:** refresh, prolonged backgrounding or browser eviction requires connection and history recovery. A home-screen entry provides convenient access, not offline chat.
+- **An offline computer:** restore the host and network after sleep, DSH shutdown or a private-network disconnect.
+
+Performance observations are tied to their environment. A single device result is not a startup promise for every network. See [performance](docs/network-performance.md) and the [FAQ](docs/faq.md) for cache scope, measurements and limitations.
+
+## Three projects, separate roles
+
+| Project | Responsibility | Required for Web? |
+| --- | --- | --- |
+| **[Mobile Web](https://github.com/MuQY1818/ds-bot-mobile-web)** | Computer plugin for the phone browser interface, navigation and DSH browser sign-in. | **Yes** |
+| **[Mobile App](https://github.com/MuQY1818/ds-bot-mobile-app)** | Native client source and the computer-side App companion: pairing, approval and device-management UI. | No |
+| **[Mobile Bridge](https://github.com/MuQY1818/ds-bot-mobile-bridge)** | Computer-side device authentication, HTTP / WebSocket transport and revocation for native clients. | No |
+
+Web and App can share one phone-access dialog while remaining independently installed and enabled. See the [App repository](https://github.com/MuQY1818/ds-bot-mobile-app) for native distribution and validation status; public ready-to-install IPA / APK files are not currently provided. Implementation boundaries are documented in [architecture](docs/architecture.md).
+
+## Documentation map
+
+Detailed guides are currently maintained in Simplified Chinese. Start at the [documentation home](docs/README.md).
+
+| I want to… | Read |
+| --- | --- |
+| Install, update, roll back or migrate an old package | [Installation](docs/installation.md) |
+| Use chat, themes and home-screen access | [Usage](docs/usage.md) |
+| Diagnose connectivity, authentication or loading | [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md) |
+| Configure HTTPS / Tailscale | [Network and sign-in](docs/remote-access.md) |
+| Understand the support boundary | [Status](docs/status.md) · [Validation](docs/validation.md) · [Performance](docs/network-performance.md) |
+| Work on the source, tests or packages | [Development](docs/development.md) · [Architecture](docs/architecture.md) |
+| Check screenshots and release history | [Design](docs/design.md) · [Image provenance](docs/images/README.md) · [CHANGELOG](CHANGELOG.md) |
+
+## Contributing
+
+Bug reports, compatibility notes, documentation and translations are welcome. Include component versions, device / browser and reproduction steps in [Issues](https://github.com/MuQY1818/ds-bot-mobile-web/issues). Remove sign-in URLs, QR codes and private conversations from screenshots.
+
+Development uses **Node.js 24, npm, Git and Python 3**. The source includes a pinned DS Bot submodule; clone, verification and packaging commands are in the [development guide](docs/development.md). Runtime tests use isolated profiles and mock data. Read [CONTRIBUTING](CONTRIBUTING.md) before submitting; keep both README languages aligned and check relative links.
+
+## License and credits
+
+[Apache License 2.0](LICENSE). This project uses the plugin capabilities of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) and reuses chat and character components from a pinned [DS Bot](https://github.com/Fei2411/DeepSeek-Bot) revision. QR encoding runs locally through `qrcode`; dependency notices travel with the installable package.
+
+See [NOTICE](NOTICE) and the [plugin NOTICE](mobile-web-prototype/plugin/NOTICE) for upstream revisions and copyright information. Thanks to the upstream authors and users contributing real-device feedback. This is an independent community project, not affiliated with DeepSeek.

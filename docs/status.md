@@ -16,7 +16,7 @@
 
 ## 0.4.6 外观更新
 
-主页日夜按钮复用宿主持久偏好，支持圆形或短暂色彩过渡、减少动态效果和加载层的明确亮暗覆盖。精灵配色、主星和群头像不依赖原 Bot 界面样式是否存在。隔离 Chromium 和 WebKit 已验证外观、刷新持久化与头像实际渲染；精确安装包通过八项正式管理器生命周期检查。实际宿主安装后十个包文件一致，其他插件和 Bridge 身份保留，加载层、Worker 与手机访问入口正常响应。iPhone 真机主题交互尚未自动验收。验证边界见[记录](validation.md#v046日夜切换候选)。
+主页日夜按钮复用宿主持久偏好，支持圆形或短暂色彩过渡、减少动态效果和加载层的明确亮暗覆盖。精灵配色、主星和群头像不依赖原 Bot 界面样式是否存在。隔离 Chromium 和 WebKit 已验证外观、刷新持久化与头像实际渲染；精确安装包通过八项正式管理器生命周期检查。实际宿主安装后十个包文件一致，其他插件和 Bridge 身份保留，加载层、Worker 与手机访问入口正常响应。iPhone 真机主题交互尚未自动验收。验证边界见[记录](validation.md#v046日夜切换)。
 
 ## 正在完善
 
@@ -28,6 +28,6 @@
 
 ## Web 与 App
 
-Web 用户安装一个 Web 插件即可。原生 App 仍是独立源码预览，版本和验证范围以 [App 状态](https://github.com/MuQY1818/ds-bot-mobile-app/blob/main/docs/status.md) 为准。
+Web 用户安装一个 Web 插件即可。原生 App 使用独立的设备配对和传输链路，源码分发、版本和验证范围以 [App 状态](https://github.com/MuQY1818/ds-bot-mobile-app/blob/main/docs/status.md) 为准。
 
 安装与操作见[安装指南](installation.md)和[使用指南](usage.md)。开发者需要的隔离测试、性能测量与已覆盖范围保留在[验证记录](validation.md)和[性能记录](network-performance.md)。

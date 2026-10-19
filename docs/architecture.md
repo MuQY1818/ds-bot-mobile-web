@@ -24,7 +24,7 @@ v0.3.0 使用公开 `sessions.retain()` 为最近 3 个逻辑会话增加引用�
 | `ds-bot-mobile-app` | 原生 App 配对、批准与设备管理 UI | 操作时需要 Mobile Bridge |
 | `ds-bot-mobile-bridge` | 设备凭据、HTTP / WebSocket 协议与撤销 | DSH + DS Bot |
 
-三个插件独立启停。App 插件和 Bridge 的源码、安装包在 [App 仓库](https://github.com/MuQY1818/ds-bot-mobile-app)；原生 iOS / Android 客户端是手机应用。两种登录二维码不可互换。
+三个插件独立启停。[App 仓库](https://github.com/MuQY1818/ds-bot-mobile-app)维护原生客户端与 App 配套界面；[Bridge 仓库](https://github.com/MuQY1818/ds-bot-mobile-bridge)维护设备认证和传输。原生客户端运行在手机上，配套插件运行在电脑上。Web 浏览器登录码与 App 设备配对码不可互换；Web 用户只需 Web 插件。
 
 ## 手机访问入口
 
