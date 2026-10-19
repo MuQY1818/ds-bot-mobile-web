@@ -119,18 +119,20 @@ function boot(paths){
   const html=document.documentElement
   html.dataset.dsmBoot='true'
   html.dataset.dsmBootMessage='正在打开 DS Bot…'
-  let finished=false,active,warmed=false,idle
+  let finished=false,active,warmed=false,cancelIdle
   const warm=()=>{
     if(warmed||!finished||!active||document.hidden||!enabledNow()||!mobileNow()||navigator.connection?.saveData)return
     warmed=true
     const run=()=>{
+      cancelIdle=undefined
       if(document.hidden||!enabledNow()||!mobileNow())return
       const loaded=[...document.querySelectorAll('script[src],link[rel=preload],link[rel=modulepreload],link[rel=stylesheet]')].map(node=>node.src||node.href)
       const resources=performance.getEntriesByType('resource').map(entry=>entry.name)
       const urls=[...new Set([...paths,...loaded,...resources].filter(value=>versionedCodeKind(value,location.origin)).map(value=>{const url=new URL(value,location.origin);return url.pathname+url.search}))]
       active.postMessage({type:'ds-bot-mobile-web/warm',paths:urls})
     }
-    if(window.requestIdleCallback)idle=window.requestIdleCallback(run,{timeout:3000});else idle=setTimeout(run,400)
+    if(window.requestIdleCallback){const id=window.requestIdleCallback(run,{timeout:3000});cancelIdle=()=>window.cancelIdleCallback(id)}
+    else{const id=setTimeout(run,400);cancelIdle=()=>clearTimeout(id)}
   }
   const cleanup=()=>{delete html.dataset.dsmBoot;delete html.dataset.dsmBootMessage}
   const finish=()=>{
@@ -149,6 +151,14 @@ function boot(paths){
   const fallback=setTimeout(()=>{if(document.getElementById('root')?.childElementCount)finish()},20000)
   check()
   if(!isSecureContext||!('serviceWorker' in navigator))return
+  const claimed=()=>{
+    const next=navigator.serviceWorker.controller
+    if(next?.scriptURL!==new URL('/ds-bot-mobile-web-worker.js',location.origin).href||next===active)return
+    cancelIdle?.();cancelIdle=undefined;active=next;warmed=false;warm()
+  }
+  // ready may resolve with the previous active worker while an update installs.
+  // Warm again after the new worker claims the page so upgrades also cache code.
+  navigator.serviceWorker.addEventListener('controllerchange',claimed)
   const start=()=>{
     if(document.hidden||!enabledNow()||!mobileNow())return
     void (async()=>{
@@ -164,7 +174,7 @@ function boot(paths){
     })().catch(()=>{})
   }
   if(document.readyState==='complete')start();else window.addEventListener('load',start,{once:true})
-  window.addEventListener('pagehide',()=>{if(window.cancelIdleCallback)window.cancelIdleCallback(idle);clearTimeout(idle)},{once:true})
+  window.addEventListener('pagehide',()=>{cancelIdle?.();navigator.serviceWorker.removeEventListener('controllerchange',claimed)},{once:true})
 }
 
 export function renderMobileStartup(html){
