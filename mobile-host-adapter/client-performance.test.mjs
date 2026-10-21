@@ -41,3 +41,13 @@ test('authorization refusal rejects every shared reader and clears the previous 
   const next=f.api.refresh();assert.deepEqual(f.requests[2].payload,{})
   f.requests[2].resolve({...f.state,bots:[]});assert.equal((await next).bots.length,0)
 })
+
+test('a stalled shared read times out without clearing cached revision or waiting for its late response',async()=>{
+  const requests=[],state={revision:7,modelsKey:'fixture',bots:[{id:'b',sessionId:'s'}],rooms:[]}
+  const api=createMobileClient({appRoot:'http://fixture.invalid/',readTimeoutMs:10,fetch:(url,options)=>new Promise(resolve=>requests.push({payload:JSON.parse(options.body).payload,signal:options.signal,resolve:value=>resolve(Response.json({ok:true,value}))}))})
+  const initial=api.refresh();requests[0].resolve(state);await initial
+  const old=api.refresh();await assert.rejects(old,{code:'mobile/timeout'});assert.equal(requests[1].signal.aborted,true)
+  const next=api.refresh();assert.equal(requests[2].payload.since,7);requests[2].resolve({unchanged:true,revision:7});await next
+  requests[1].resolve({...state,revision:999});await Promise.resolve();await Promise.resolve()
+  const final=api.refresh();assert.equal(requests[3].payload.since,7);requests[3].resolve({unchanged:true,revision:7});await final
+})

@@ -83,3 +83,29 @@ test('mascot projection preserves custom avatar, work, activity and group member
 test('dispose cancels state and releases service subscriptions once',async()=>{
   let resolve;const f=fixture({conversations:()=>new Promise(r=>{resolve=r})});const pending=f.controller.refresh();assert.equal(f.list.size,1);f.controller.close();f.controller.close();resolve([]);await pending;assert.equal(f.list.size,0);assert.equal(f.state.size,0)
 })
+
+test('suspending an unresolved recovery releases its waiters and ignores its late roster',async()=>{
+  const requests=[],catalogs=[]
+  const f=fixture({conversations:signal=>new Promise(resolve=>requests.push({signal,resolve}))},()=>new Promise(resolve=>catalogs.push(resolve)))
+  const old=f.controller.restore();await Promise.resolve()
+  f.controller.suspend();await old
+  assert.equal(requests[0].signal.aborted,true);assert.equal(f.controller.snapshot().loading,false)
+  const current=f.controller.restore();await Promise.resolve()
+  assert.equal(requests.length,2);assert.equal(catalogs.length,2)
+  requests[1].resolve([{id:'new'}]);catalogs[1]();await current
+  requests[0].resolve([{id:'old'}]);catalogs[0]();await Promise.resolve()
+  assert.equal(f.controller.snapshot().items[0].id,'new');f.controller.close()
+})
+test('a silent carrier times out, reconnects once, and allows a later successful recovery',async()=>{
+  let stuck=true,reconnects=0
+  const list=source({byId:{}}),state=source('connected')
+  const controller=createMobileNavigation({api:{conversations:async()=>[{id:'a'}]},workspace:{},history:{},sessions:{list,refresh:()=>stuck?new Promise(()=>{}):Promise.resolve()},connection:{state,reconnect(){reconnects++;stuck=false}},readTimeoutMs:10})
+  await controller.restore();assert.equal(reconnects,1);assert.match(controller.snapshot().error,/恢复尚未完成/)
+  await controller.restore();assert.equal(controller.snapshot().error,'');assert.equal(reconnects,1);controller.close()
+})
+test('explicit network repair coalesces repeated requests without reconnect storms',async()=>{
+  const gate=deferred(),f=fixture({},()=>gate.promise)
+  const one=f.controller.restore({reconnect:true}),two=f.controller.restore({reconnect:true})
+  assert.equal(one,two);assert.equal(f.reconnects,1)
+  gate.resolve();await one;f.controller.close()
+})

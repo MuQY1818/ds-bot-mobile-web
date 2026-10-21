@@ -1,8 +1,9 @@
+import {readOperation} from './read-operation.mjs'
 const failure = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra })
 
 // appRoot is the DSH mount root, not the mobile page's directory.
 // This module never accepts launch tokens and never reads browser cookies.
-export function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {}) {
+export function createMobileClient({ appRoot, fetch: request = globalThis.fetch, readTimeoutMs=12000 } = {}) {
   const root = new URL(appRoot)
   const desktopRoot = root.protocol === 'dsh-app:' && root.hostname === 'app' && root.port === '' && root.pathname === '/'
   if ((!['http:', 'https:'].includes(root.protocol) && !desktopRoot) || root.username || root.password || root.search || root.hash || !root.pathname.endsWith('/')) {
@@ -48,7 +49,7 @@ export function createMobileClient({ appRoot, fetch: request = globalThis.fetch 
       const order = ++issued
       stateRequest = request
       request.promise = (async () => {
-        const value = await call('state', state ? { since: state.revision, models: state.modelsKey } : {}, request.controller.signal)
+        const value = await readOperation(signal=>call('state', state ? { since: state.revision, models: state.modelsKey } : {}, signal),{signal:request.controller.signal,timeoutMs:readTimeoutMs})
         request.controller.signal.throwIfAborted()
         if (order < applied) return state
         if (!value || (!value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms)))) {
