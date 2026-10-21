@@ -1,6 +1,6 @@
 # DS Bot Mobile Web 文档
 
-在手机浏览器中使用电脑上已有的 DS Bot 团队。当前发布版本为 **0.4.8**，适配 DSH `0.2.1-rc.2` / DS Bot `0.1.7`。
+在手机浏览器中使用电脑上已有的 DS Bot 团队。当前发布版本为 **0.4.16**，适配 DSH `0.2.1-rc.2` / DS Bot `0.1.7`。
 
 [项目首页](../README.md) · [English overview](../README.en.md) · [下载插件](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest) · [更新记录](../CHANGELOG.md)
 

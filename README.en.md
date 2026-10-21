@@ -54,9 +54,9 @@ This user-provided capture shows the actual **Web** tab. For public documentatio
 | **Bounded caching and launch feedback** | Retain recent conversation references briefly, cache eligible static code, and show an independent loader plus iPhone launch images. |
 | **Persistent light and dark themes** | Reuse the host preference through a sun/moon toggle, with transitions, reduced-motion support and character colors independent of the original Bot styles. |
 
-`0.4.15` keeps the header title and avatar below the iOS 27 native scroll edge, corrects negative viewport offsets after keyboard dismissal and relaunch, and retains the full-height layout and message-action spacing. Simulator checks and the user's iPhone confirmation are recorded below.
+`0.4.16` preserves recent sessions through background suspension, repairs the connection after a longer absence or network recovery, and bounds stalled reads. It retains the iOS 27 Home Screen layout, theme handling and keyboard adaptations.
 
-**Current release: 0.4.15.** The current compatibility target is DSH `0.2.1-rc.2` / DS Bot `0.1.7`. Chat capabilities depend on that host combination; keyboard behavior, background recovery and network changes vary between browsers. See [status](docs/status.md), the [0.4.15 notes](docs/releases/v0.4.15.md) and [validation](docs/validation.md).
+**Current release: 0.4.16.** The current compatibility target is DSH `0.2.1-rc.2` / DS Bot `0.1.7`. Chat capabilities depend on that host combination; keyboard behavior, background recovery and network changes vary between browsers. See [status](docs/status.md), the [0.4.16 notes](docs/releases/v0.4.16.md) and [validation](docs/validation.md).
 
 ## Quick start
 
@@ -64,7 +64,7 @@ This user-provided capture shows the actual **Web** tab. For public documentatio
 
 Start with a working DSH and DS Bot installation where your existing team is usable.
 
-Download the plugin `.tgz` from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest). The current asset is **`ds-bot-mobile-web-0.4.15.tgz`**. Install and enable it in your existing DSH plugin manager, then refresh. Restart the same host when prompted.
+Download the plugin `.tgz` from [Releases](https://github.com/MuQY1818/ds-bot-mobile-web/releases/latest). The current asset is **`ds-bot-mobile-web-0.4.16.tgz`**. Install and enable it in your existing DSH plugin manager, then refresh. Restart the same host when prompted.
 
 GitHub's automatically generated “Source code” archives are for development. The phone does not download or unpack the plugin.
 
