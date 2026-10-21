@@ -3,6 +3,7 @@ import {createMobileClient} from '../../../mobile-host-adapter/client.mjs'
 import {createMobileNavigation} from './controller.mjs'
 import {createLayoutPreference} from './preference.mjs'
 import {createRefreshLoop} from './refresh-loop.mjs'
+import {installConnectionLifecycle} from './connection-lifecycle.mjs'
 import {createComposerKeyboard} from './composer-keyboard.mjs'
 import {createMobileViewport} from './mobile-viewport.mjs'
 import {installMobileStyles} from './mobile-styles.mjs'
@@ -103,8 +104,8 @@ export function apply(ctx){
   const phone=createPhoneController({appRoot:new URL('./',location.href).href,form:ctx.configForms.get('mobile-layout-local')})
   const access=registerMobileAccessProvider({id:'web',label:'Web',order:10,render:()=>h(WebAccessPanel,{phone})})
   const mobileMedia=window.matchMedia('(max-width:767px), (max-width:1024px) and (max-height:500px)')
-  let suspended=false,viewport
-  const mobileActive=()=>preference.snapshot()&&mobileMedia.matches&&!document.hidden&&!suspended
+  let lifecycle,viewport
+  const mobileActive=()=>preference.snapshot()&&mobileMedia.matches&&!document.hidden&&(!lifecycle||lifecycle.active())
   const appearance=createMobileTheme({theme:ctx.theme,subscribe:listener=>ctx.on('theme/change',listener),window,document,enabled:mobileActive})
   const keyboardActive=()=>mobileActive()&&controller.snapshot().page==='chat'
   const keyboardDismiss=()=>viewport?.beginDismiss()
@@ -114,30 +115,20 @@ export function apply(ctx){
     const meta=document.querySelector('meta[name=viewport]'),originalViewport=meta?.content
     if(meta&&!meta.content.includes('viewport-fit'))meta.content+=', viewport-fit=cover'
     viewport=createMobileViewport({window,document,enabled:keyboardActive})
-    let cacheRelease
     const polling=createRefreshLoop({enabled:mobileActive,refresh:()=>{if(!controller.snapshot().loading)return controller.refresh()}})
-    const cacheMode=()=>{browserAppearance.sync();controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches&&!document.hidden);if(!preference.snapshot())void clearMobileAssetCache(window)}
-    const delayCacheRelease=()=>{clearTimeout(cacheRelease);cacheRelease=setTimeout(()=>controller.setCacheEnabled(false),30000)}
+    const cacheMode=()=>{browserAppearance.sync();controller.setCacheEnabled(preference.snapshot()&&mobileMedia.matches);if(!mobileActive())controller.pauseWarmup();if(!preference.snapshot())void clearMobileAssetCache(window)}
     const poll=()=>polling.sync()
     const offPreference=preference.subscribe(()=>{appearance.cancel();viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()})
-    const recover=()=>{clearTimeout(cacheRelease);viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()}
+    lifecycle=installConnectionLifecycle({window,document,controller,enabled:()=>preference.snapshot()&&mobileMedia.matches,sync:()=>{viewport.sync();cacheMode();poll()}})
     const mediaChange=()=>{viewport.sync();cacheMode();poll();if(mobileActive())void controller.restore()}
-    const visible=()=>{if(document.hidden){suspended=true;controller.pauseWarmup();poll();delayCacheRelease()}else if(suspended){suspended=false;recover()}}
-    const hide=()=>{suspended=true;poll();clearTimeout(cacheRelease);controller.setCacheEnabled(false)}
-    const show=event=>{if(event.persisted&&suspended){suspended=false;recover()}}
-    const resume=()=>{if(suspended){suspended=false;recover()}}
     const pop=event=>controller.pop(event)
-    window.addEventListener('pageshow',show);window.addEventListener('pagehide',hide)
-    window.addEventListener('online',recover);window.addEventListener('popstate',pop)
+    window.addEventListener('popstate',pop)
     mobileMedia.addEventListener('change',mediaChange)
-    document.addEventListener('visibilitychange',visible);document.addEventListener('freeze',hide);document.addEventListener('resume',resume)
     cacheMode();poll();if(mobileActive())void controller.refresh()
     return()=>{
-      polling.close();clearTimeout(cacheRelease);mobileMedia.removeEventListener('change',mediaChange);offPreference();controller.close();styles.close();if(meta)meta.content=originalViewport
+      lifecycle.close();lifecycle=undefined;polling.close();mobileMedia.removeEventListener('change',mediaChange);offPreference();controller.close();styles.close();if(meta)meta.content=originalViewport
       viewport.close();viewport=undefined
-      window.removeEventListener('pageshow',show);window.removeEventListener('pagehide',hide)
-      window.removeEventListener('online',recover);window.removeEventListener('popstate',pop)
-      document.removeEventListener('visibilitychange',visible);document.removeEventListener('freeze',hide);document.removeEventListener('resume',resume)
+      window.removeEventListener('popstate',pop)
       delete document.body.dataset.dsmEnabled;delete document.body.dataset.dsmPage
     }
   })

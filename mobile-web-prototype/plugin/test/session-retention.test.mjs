@@ -123,7 +123,7 @@ test('TTL releases history while idle and revisits renew the retention period',a
   cache.close();await settle()
 })
 
-test('hide, preference disable, and disposal release pending readiness safely',async()=>{
+test('preference disable and disposal release pending readiness safely',async()=>{
   const sessions=sessionService({deferred:true}),time=clock(),cache=createSessionRetention({sessions,...time})
   cache.setEnabled(true);cache.visit(target('a'));cache.visit(target('b'))
   cache.setEnabled(false)
@@ -173,7 +173,7 @@ test('401 or 403 clears cached histories instead of opening a cached identity',a
     f.failure=Object.assign(new Error('Unauthorized'),{code})
     await f.controller.open('a')
     assert.equal(f.sessions.retained('a'),0);assert.equal(f.sessions.retained('b'),0)
-    assert.match(f.controller.snapshot().error,/登录已失效/)
+    assert.match(f.controller.snapshot().error,code==='HTTP_401'?/登录已失效/:/拒绝访问/)
     assert.deepEqual(f.sessions.requests,['a','b'])
     f.close();await settle()
   }
@@ -198,4 +198,17 @@ test('a failed optional retain does not block canonical main-view navigation',as
   const controller=createMobileNavigation({sessions,connection:{state:source('connected')},history:{state:null,pushState(){}},workspace:{openSession:id=>opened.push(id)},api:{target:async()=>target('a')}})
   controller.setCacheEnabled(true);await controller.open('a')
   assert.deepEqual(opened,['a']);assert.equal(controller.snapshot().page,'chat');controller.close()
+})
+
+test('suspension and transient target failure retain visited generations without opening stale identities',async()=>{
+  const f=navigationFixture();f.controller.setCacheEnabled(true)
+  await f.controller.open('a');await f.controller.open('b')
+  f.controller.suspend()
+  assert.equal(f.sessions.retained('a'),1);assert.equal(f.sessions.retained('b'),1)
+  f.failure=Object.assign(new Error('Interrupted'),{code:'mobile/transport'})
+  await f.controller.open('a')
+  assert.equal(f.controller.snapshot().active.id,'b');assert.equal(f.sessions.retained('a'),1)
+  f.failure=undefined;await f.controller.restore();await f.controller.open('a')
+  assert.deepEqual(f.sessions.requests,['a','b'],'resume reuses the canonical histories')
+  f.close();await settle()
 })

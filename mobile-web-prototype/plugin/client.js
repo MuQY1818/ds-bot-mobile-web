@@ -1856,9 +1856,40 @@ __export(client_exports, {
 module.exports = __toCommonJS(client_exports);
 var import_react4 = require("react");
 
+// ../../mobile-host-adapter/read-operation.mjs
+function readOperation(read, { signal, timeoutMs = 12e3, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  const controller = new AbortController();
+  return new Promise((resolve, reject) => {
+    let settled = false, timer;
+    const finish = (settle, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimer(timer);
+      signal?.removeEventListener("abort", cancel);
+      settle(value);
+    };
+    const abort = (reason) => {
+      finish(reject, reason);
+      controller.abort(reason);
+    };
+    const cancel = () => abort(signal.reason);
+    if (signal?.aborted) {
+      cancel();
+      return;
+    }
+    signal?.addEventListener("abort", cancel, { once: true });
+    timer = setTimer(() => abort(Object.assign(new Error("Read timed out"), { code: "mobile/timeout" })), timeoutMs);
+    try {
+      Promise.resolve(read(controller.signal)).then((value) => finish(resolve, value), (error) => finish(reject, error));
+    } catch (error) {
+      finish(reject, error);
+    }
+  });
+}
+
 // ../../mobile-host-adapter/client.mjs
 var failure = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
-function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {}) {
+function createMobileClient({ appRoot, fetch: request = globalThis.fetch, readTimeoutMs = 12e3 } = {}) {
   const root = new URL(appRoot);
   const desktopRoot = root.protocol === "dsh-app:" && root.hostname === "app" && root.port === "" && root.pathname === "/";
   if (!["http:", "https:"].includes(root.protocol) && !desktopRoot || root.username || root.password || root.search || root.hash || !root.pathname.endsWith("/")) {
@@ -1910,7 +1941,7 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch } = {})
       const order = ++issued;
       stateRequest = request3;
       request3.promise = (async () => {
-        const value = await call("state", state ? { since: state.revision, models: state.modelsKey } : {}, request3.controller.signal);
+        const value = await readOperation((signal2) => call("state", state ? { since: state.revision, models: state.modelsKey } : {}, signal2), { signal: request3.controller.signal, timeoutMs: readTimeoutMs });
         request3.controller.signal.throwIfAborted();
         if (order < applied) return state;
         if (!value || !value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms))) {
@@ -2205,6 +2236,7 @@ function createSessionWarmup({ prewarm, idle = scheduleIdle, events = globalThis
 
 // src/controller.mjs
 var unauthorized = (error) => error?.code === "HTTP_401" || error?.code === "HTTP_403";
+var accessError = (error) => error?.code === "HTTP_401" ? "登录已失效，请刷新页面重新登录。" : error?.code === "HTTP_403" ? "当前入口拒绝访问，请检查电脑端的访问权限。" : void 0;
 function summarizeTeam(team) {
   const approvals = team.work?.approvals ?? [];
   const bots = team.bots.map((bot) => {
@@ -2213,14 +2245,19 @@ function summarizeTeam(team) {
   });
   return [...bots, ...team.rooms.map((room) => ({ id: room.id, name: room.name, kind: "room", sessionId: room.id, preview: typeof room.preview === "string" ? room.preview : "", members: room.members ?? [] }))];
 }
-function createMobileNavigation({ api, workspace, sessions, connection, history, now = Date.now, idle }) {
+function createMobileNavigation({ api, workspace, sessions, connection, history, now = Date.now, idle, readTimeoutMs = 12e3 }) {
   const listeners = /* @__PURE__ */ new Set();
   const retention = createSessionRetention({ sessions, now });
   const warmup = createSessionWarmup({ prewarm: (target) => retention.prewarm(target), idle });
   let cacheEnabled = false, warmingEnabled = false;
   const recentIds = [];
   let state = { page: history.state?.dsMobilePage === "chat" ? "chat" : "home", tab: "chats", items: [], active: null, error: "", loading: false, query: "", connected: connection.state.getSnapshot(), lastSync: null };
-  let disposed = false, nav = 0, pull = 0, controller, restoring, refreshing, navigation;
+  let disposed = false, nav = 0, pull = 0, controller, restoring, refreshing, navigation, lastReconnect = -Infinity;
+  const reconnect = () => {
+    if (disposed || now() - lastReconnect < 15e3 || connection.state.getSnapshot() === "connecting") return;
+    lastReconnect = now();
+    connection.reconnect?.();
+  };
   const publish = (patch) => {
     if (disposed) return;
     state = { ...state, ...patch };
@@ -2252,7 +2289,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     publish({ loading: true });
     refreshing = (async () => {
       try {
-        const items = typeof api.refresh === "function" ? summarizeTeam(await api.refresh(request.signal)) : await api.conversations(request.signal);
+        const items = await readOperation((signal) => typeof api.refresh === "function" ? api.refresh(signal).then(summarizeTeam) : api.conversations(signal), { signal: request.signal, timeoutMs: readTimeoutMs });
         if (disposed || issued !== pull) return;
         retention.reconcile(items);
         publish({ items, loading: false, error: "", lastSync: now() });
@@ -2264,7 +2301,8 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
           warmup.sync({ enabled: false });
           retention.clear();
         }
-        const errorText = unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
+        if (error?.code === "mobile/timeout") reconnect();
+        const errorText = accessError(error) || "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
         publish({ loading: false, error: errorText });
       }
     })().finally(() => {
@@ -2278,8 +2316,8 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     navigation = request;
     publish({ loading: true, error: "" });
     try {
-      const target = await api.target(id, request.signal);
-      if (disposed || attempt !== nav) return;
+      const target = await readOperation((signal) => api.target(id, signal), { signal: request.signal, timeoutMs: readTimeoutMs });
+      if (disposed || attempt !== nav || request.signal.aborted) return;
       retention.visit(target);
       const recent = recentIds.indexOf(target.id);
       if (recent >= 0) recentIds.splice(recent, 1);
@@ -2293,27 +2331,51 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
       if (unauthorized(error)) {
         warmup.sync({ enabled: false });
         retention.clear();
-      } else retention.discard(id);
-      publish({ loading: false, error: unauthorized(error) ? "登录已失效，请刷新页面重新登录。" : "无法打开会话，请刷新列表后重试。" });
+      } else if (error?.code === "mobile/not-found") retention.discard(id);
+      if (error?.code === "mobile/timeout") reconnect();
+      publish({ loading: false, error: accessError(error) || "无法打开会话，请刷新列表后重试。" });
     } finally {
       if (navigation === request) navigation = void 0;
     }
   }
-  async function restore() {
-    if (disposed || restoring) return restoring;
-    restoring = Promise.allSettled([
+  function suspend() {
+    warmup.sync({ enabled: false });
+    warmingEnabled = false;
+    cancelNavigation();
+    pull++;
+    controller?.abort();
+    controller = void 0;
+    refreshing = void 0;
+    const previous = restoring;
+    restoring = void 0;
+    previous?.controller.abort();
+    publish({ loading: false });
+  }
+  function restore({ reconnect: repair = false } = {}) {
+    if (disposed) return;
+    if (restoring) return restoring.promise;
+    if (repair) {
+      suspend();
+      reconnect();
+    }
+    warmingEnabled = cacheEnabled;
+    const recovery = { controller: new AbortController() };
+    restoring = recovery;
+    recovery.promise = Promise.allSettled([
       Promise.resolve().then(() => {
-        if (!disposed) return sessions.refresh();
+        if (!disposed && !recovery.controller.signal.aborted) return readOperation(() => sessions.refresh(), { signal: recovery.controller.signal, timeoutMs: readTimeoutMs });
       }),
       Promise.resolve().then(() => {
-        if (!disposed) return refresh();
+        if (!disposed && !recovery.controller.signal.aborted) return refresh();
       })
     ]).then((results) => {
+      if (disposed || restoring !== recovery || recovery.controller.signal.aborted) return;
+      if (results.some((result) => result.status === "rejected" && result.reason?.code === "mobile/timeout")) reconnect();
       if (results.some((result) => result.status === "rejected") && !state.error) publish({ error: "会话恢复尚未完成，请检查电脑连接。" });
     }).finally(() => {
-      restoring = void 0;
+      if (restoring === recovery) restoring = void 0;
     });
-    return restoring;
+    return recovery.promise;
   }
   return {
     snapshot: () => state,
@@ -2324,6 +2386,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     refresh,
     open,
     restore,
+    suspend,
     pauseWarmup() {
       warmingEnabled = false;
       warmup.sync({ enabled: false });
@@ -2355,10 +2418,8 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
     },
     close() {
       if (disposed) return;
+      suspend();
       disposed = true;
-      cancelNavigation();
-      pull++;
-      controller?.abort();
       warmup.close();
       retention.close();
       offSessions();
@@ -2424,6 +2485,59 @@ function createRefreshLoop({ refresh, enabled, intervalMs = 5e3, setTimer = setT
   return { sync, close() {
     closed = true;
     clear();
+  } };
+}
+
+// src/connection-lifecycle.mjs
+function installConnectionLifecycle({ window: window2, document: document2, controller, enabled, sync, now = Date.now, reconnectAfterMs = 15e3 }) {
+  let suspended = Boolean(document2.hidden), hiddenAt = suspended ? now() : void 0, networkChanged = false, closed = false;
+  const active = () => !closed && enabled() && !document2.hidden && !suspended;
+  const pause = () => {
+    if (hiddenAt === void 0) hiddenAt = now();
+    suspended = true;
+    controller.suspend();
+    sync();
+  };
+  const recover = () => {
+    if (closed || document2.hidden) return;
+    const reconnect = networkChanged || hiddenAt !== void 0 && now() - hiddenAt >= reconnectAfterMs;
+    suspended = false;
+    hiddenAt = void 0;
+    networkChanged = false;
+    sync();
+    if (active()) void controller.restore({ reconnect });
+  };
+  const visible = () => {
+    if (document2.hidden) pause();
+    else if (suspended) recover();
+  };
+  const online = () => {
+    networkChanged = true;
+    recover();
+  };
+  const offline = () => {
+    networkChanged = true;
+    controller.suspend();
+  };
+  const show = (event) => {
+    if (event.persisted || suspended) recover();
+  };
+  const resume = () => {
+    if (suspended) recover();
+  };
+  const listeners = [
+    [window2, "pagehide", pause],
+    [window2, "pageshow", show],
+    [window2, "online", online],
+    [window2, "offline", offline],
+    [document2, "visibilitychange", visible],
+    [document2, "freeze", pause],
+    [document2, "resume", resume]
+  ];
+  for (const [target, event, listener] of listeners) target.addEventListener(event, listener);
+  return { active, close() {
+    closed = true;
+    for (const [target, event, listener] of listeners) target.removeEventListener(event, listener);
   } };
 }
 
@@ -4870,8 +4984,8 @@ function apply(ctx) {
   const phone = createPhoneController({ appRoot: new URL("./", location.href).href, form: ctx.configForms.get("mobile-layout-local") });
   const access = registerMobileAccessProvider({ id: "web", label: "Web", order: 10, render: () => (0, import_react4.createElement)(WebAccessPanel, { phone }) });
   const mobileMedia = window.matchMedia("(max-width:767px), (max-width:1024px) and (max-height:500px)");
-  let suspended = false, viewport;
-  const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && !suspended;
+  let lifecycle, viewport;
+  const mobileActive = () => preference.snapshot() && mobileMedia.matches && !document.hidden && (!lifecycle || lifecycle.active());
   const appearance = createMobileTheme({ theme: ctx.theme, subscribe: (listener) => ctx.on("theme/change", listener), window, document, enabled: mobileActive });
   const keyboardActive = () => mobileActive() && controller.snapshot().page === "chat";
   const keyboardDismiss = () => viewport?.beginDismiss();
@@ -4887,18 +5001,14 @@ function apply(ctx) {
     const meta = document.querySelector("meta[name=viewport]"), originalViewport = meta?.content;
     if (meta && !meta.content.includes("viewport-fit")) meta.content += ", viewport-fit=cover";
     viewport = createMobileViewport({ window, document, enabled: keyboardActive });
-    let cacheRelease;
     const polling = createRefreshLoop({ enabled: mobileActive, refresh: () => {
       if (!controller.snapshot().loading) return controller.refresh();
     } });
     const cacheMode = () => {
       browserAppearance.sync();
-      controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches && !document.hidden);
+      controller.setCacheEnabled(preference.snapshot() && mobileMedia.matches);
+      if (!mobileActive()) controller.pauseWarmup();
       if (!preference.snapshot()) void clearMobileAssetCache(window);
-    };
-    const delayCacheRelease = () => {
-      clearTimeout(cacheRelease);
-      cacheRelease = setTimeout(() => controller.setCacheEnabled(false), 3e4);
     };
     const poll = () => polling.sync();
     const offPreference = preference.subscribe(() => {
@@ -4908,63 +5018,27 @@ function apply(ctx) {
       poll();
       if (mobileActive()) void controller.restore();
     });
-    const recover = () => {
-      clearTimeout(cacheRelease);
+    lifecycle = installConnectionLifecycle({ window, document, controller, enabled: () => preference.snapshot() && mobileMedia.matches, sync: () => {
       viewport.sync();
       cacheMode();
       poll();
-      if (mobileActive()) void controller.restore();
-    };
+    } });
     const mediaChange = () => {
       viewport.sync();
       cacheMode();
       poll();
       if (mobileActive()) void controller.restore();
     };
-    const visible = () => {
-      if (document.hidden) {
-        suspended = true;
-        controller.pauseWarmup();
-        poll();
-        delayCacheRelease();
-      } else if (suspended) {
-        suspended = false;
-        recover();
-      }
-    };
-    const hide = () => {
-      suspended = true;
-      poll();
-      clearTimeout(cacheRelease);
-      controller.setCacheEnabled(false);
-    };
-    const show = (event) => {
-      if (event.persisted && suspended) {
-        suspended = false;
-        recover();
-      }
-    };
-    const resume = () => {
-      if (suspended) {
-        suspended = false;
-        recover();
-      }
-    };
     const pop = (event) => controller.pop(event);
-    window.addEventListener("pageshow", show);
-    window.addEventListener("pagehide", hide);
-    window.addEventListener("online", recover);
     window.addEventListener("popstate", pop);
     mobileMedia.addEventListener("change", mediaChange);
-    document.addEventListener("visibilitychange", visible);
-    document.addEventListener("freeze", hide);
-    document.addEventListener("resume", resume);
     cacheMode();
     poll();
     if (mobileActive()) void controller.refresh();
     return () => {
+      lifecycle.close();
+      lifecycle = void 0;
       polling.close();
-      clearTimeout(cacheRelease);
       mobileMedia.removeEventListener("change", mediaChange);
       offPreference();
       controller.close();
@@ -4972,13 +5046,7 @@ function apply(ctx) {
       if (meta) meta.content = originalViewport;
       viewport.close();
       viewport = void 0;
-      window.removeEventListener("pageshow", show);
-      window.removeEventListener("pagehide", hide);
-      window.removeEventListener("online", recover);
       window.removeEventListener("popstate", pop);
-      document.removeEventListener("visibilitychange", visible);
-      document.removeEventListener("freeze", hide);
-      document.removeEventListener("resume", resume);
       delete document.body.dataset.dsmEnabled;
       delete document.body.dataset.dsmPage;
     };
