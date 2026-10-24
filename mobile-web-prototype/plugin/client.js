@@ -1911,6 +1911,7 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch, readTi
       response = await request(route, {
         method: "POST",
         credentials: "same-origin",
+        cache: "no-store",
         redirect: "error",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ endpoint, payload }),
@@ -1934,6 +1935,31 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch, readTi
     if (result?.ok !== true) throw failure("mobile/invalid-response", "Unexpected DS Bot response", { uncertain: true });
     return result.value;
   }
+  async function readState(payload, signal) {
+    let refusal;
+    try {
+      return await call("state", payload, signal);
+    } catch (error) {
+      if (error.code !== "HTTP_401" || desktopRoot) throw error;
+      refusal = error;
+    }
+    let response;
+    try {
+      response = await request(root, { method: "HEAD", credentials: "same-origin", cache: "no-store", redirect: "error", signal });
+    } catch (cause) {
+      throw failure("mobile/transport", "Connection check interrupted", { cause });
+    }
+    signal.throwIfAborted();
+    if (response.status === 401) throw refusal;
+    if (response.status === 403) throw failure("HTTP_403", "DSH entry refused access");
+    if (response.status !== 200) throw failure("mobile/transport", "DSH entry is not ready");
+    try {
+      return await call("state", payload, signal);
+    } catch (error) {
+      if (error.code === "HTTP_401") throw failure("mobile/session-sync", "Browser login is valid but the team connection is not ready");
+      throw error;
+    }
+  }
   async function refresh(signal) {
     signal?.throwIfAborted();
     if (!stateRequest) {
@@ -1941,7 +1967,7 @@ function createMobileClient({ appRoot, fetch: request = globalThis.fetch, readTi
       const order = ++issued;
       stateRequest = request3;
       request3.promise = (async () => {
-        const value = await readOperation((signal2) => call("state", state ? { since: state.revision, models: state.modelsKey } : {}, signal2), { signal: request3.controller.signal, timeoutMs: readTimeoutMs });
+        const value = await readOperation((signal2) => readState(state ? { since: state.revision, models: state.modelsKey } : {}, signal2), { signal: request3.controller.signal, timeoutMs: readTimeoutMs });
         request3.controller.signal.throwIfAborted();
         if (order < applied) return state;
         if (!value || !value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms))) {
@@ -2301,7 +2327,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
           warmup.sync({ enabled: false });
           retention.clear();
         }
-        if (error?.code === "mobile/timeout") reconnect();
+        if (["mobile/timeout", "mobile/session-sync"].includes(error?.code)) reconnect();
         const errorText = accessError(error) || "暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。";
         publish({ loading: false, error: errorText });
       }
@@ -2332,7 +2358,7 @@ function createMobileNavigation({ api, workspace, sessions, connection, history,
         warmup.sync({ enabled: false });
         retention.clear();
       } else if (error?.code === "mobile/not-found") retention.discard(id);
-      if (error?.code === "mobile/timeout") reconnect();
+      if (["mobile/timeout", "mobile/session-sync"].includes(error?.code)) reconnect();
       publish({ loading: false, error: accessError(error) || "无法打开会话，请刷新列表后重试。" });
     } finally {
       if (navigation === request) navigation = void 0;

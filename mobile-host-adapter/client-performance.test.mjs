@@ -4,7 +4,7 @@ import {createMobileClient} from './client.mjs'
 
 function fixture(){
   const requests=[]
-  const api=createMobileClient({appRoot:'http://fixture.invalid/',fetch:(url,options)=>new Promise(resolve=>requests.push({signal:options.signal,payload:JSON.parse(options.body).payload,resolve(value,status=200){resolve(Response.json({ok:true,value},{status}))}}))})
+  const api=createMobileClient({appRoot:'http://fixture.invalid/',fetch:(url,options)=>options.method==='HEAD'?Promise.resolve(new Response(null,{status:401})):new Promise(resolve=>requests.push({signal:options.signal,payload:JSON.parse(options.body).payload,resolve(value,status=200){resolve(Response.json({ok:true,value},{status}))}}))})
   const state={revision:1,modelsKey:'fixture',bots:[{id:'bot',name:'Bot',sessionId:'part-1'}],rooms:[]}
   return {api,requests,state}
 }
@@ -50,4 +50,61 @@ test('a stalled shared read times out without clearing cached revision or waitin
   const next=api.refresh();assert.equal(requests[2].payload.since,7);requests[2].resolve({unchanged:true,revision:7});await next
   requests[1].resolve({...state,revision:999});await Promise.resolve();await Promise.resolve()
   const final=api.refresh();assert.equal(requests[3].payload.since,7);requests[3].resolve({unchanged:true,revision:7});await final
+})
+
+test('a transient state refusal checks the existing browser login and recovers once for all readers',async()=>{
+  const requests=[];let stateReads=0
+  const state={revision:4,modelsKey:'fixture',bots:[{id:'b',sessionId:'s'}],rooms:[]}
+  const api=createMobileClient({appRoot:'https://fixture.invalid/',fetch:async(url,options)=>{
+    requests.push({url:String(url),...options})
+    if(options.method==='HEAD')return new Response(null,{status:200})
+    return ++stateReads===1?new Response(null,{status:401}):Response.json({ok:true,value:state})
+  }})
+  const [roster,target]=await Promise.all([api.refresh(),api.target('b')])
+  assert.equal(roster.revision,4);assert.equal(target.sessionId,'s');assert.deepEqual(requests.map(r=>r.method),['POST','HEAD','POST'])
+  for(const request of requests){assert.equal(request.credentials,'same-origin');assert.equal(request.cache,'no-store');assert.ok(!request.url.includes('token='))}
+})
+
+test('repeated API refusal with a valid login is a sync failure; incremental state survives',async()=>{
+  const requests=[];let reject=false
+  const state={revision:9,modelsKey:'fixture',bots:[],rooms:[]}
+  const api=createMobileClient({appRoot:'https://fixture.invalid/',fetch:async(url,options)=>{
+    requests.push(options)
+    if(options.method==='HEAD')return new Response(null,{status:200})
+    return reject?new Response(null,{status:401}):Response.json({ok:true,value:state})
+  }})
+  await api.refresh();reject=true
+  await assert.rejects(api.refresh(),{code:'mobile/session-sync'});assert.equal(requests.length,4)
+  reject=false;await api.refresh();assert.equal(JSON.parse(requests[4].body).payload.since,9)
+})
+
+test('an unreachable login check is a network failure and cannot be reported as expiration',async()=>{
+  const api=createMobileClient({appRoot:'https://fixture.invalid/',fetch:async(url,options)=>{if(options.method==='HEAD')throw Error('tunnel unavailable');return new Response(null,{status:401})}})
+  await assert.rejects(api.refresh(),{code:'mobile/transport'})
+})
+
+test('a denied entry is preserved and message submissions never replay after a send refusal',async()=>{
+  let mode='forbidden',sends=0,heads=0
+  const state={revision:1,bots:[{id:'b',sessionId:'s'}],rooms:[]}
+  const api=createMobileClient({appRoot:'https://fixture.invalid/',fetch:async(url,options)=>{
+    if(options.method==='HEAD'){heads++;return new Response(null,{status:403})}
+    const body=JSON.parse(options.body)
+    if(body.endpoint==='send'){sends++;return new Response(null,{status:401})}
+    return mode==='forbidden'?new Response(null,{status:401}):Response.json({ok:true,value:state})
+  }})
+  await assert.rejects(api.refresh(),{code:'HTTP_403'});assert.equal(heads,1)
+  mode='send';await assert.rejects(api.sendText('b','fixture message'),{code:'HTTP_401'});assert.equal(sends,1);assert.equal(heads,1)
+})
+
+test('cancelling the final reader during validation cannot dispatch the retry',async()=>{
+  let heads,release,posts=0
+  const api=createMobileClient({appRoot:'https://fixture.invalid/',fetch:async(url,options)=>{
+    if(options.method==='HEAD')return new Promise(resolve=>{release=resolve;heads=options.signal})
+    posts++;return new Response(null,{status:401})
+  }})
+  const abort=new AbortController(),pending=api.refresh(abort.signal)
+  for(let n=0;n<12&&!heads;n++)await Promise.resolve()
+  assert.ok(heads);abort.abort();await assert.rejects(pending,{name:'AbortError'});release(new Response(null,{status:200}))
+  for(let n=0;n<12;n++)await Promise.resolve()
+  assert.equal(posts,1)
 })

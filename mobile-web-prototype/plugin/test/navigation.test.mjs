@@ -109,3 +109,11 @@ test('explicit network repair coalesces repeated requests without reconnect stor
   assert.equal(one,two);assert.equal(f.reconnects,1)
   gate.resolve();await one;f.controller.close()
 })
+
+test('an API refusal with a confirmed valid browser login requests recovery instead of reauthentication',async()=>{
+  let recovering=true
+  const f=fixture({conversations:async()=>{if(recovering)throw Object.assign(new Error('API not ready'),{code:'mobile/session-sync'});return [{id:'current'}]}})
+  await f.controller.refresh();assert.equal(f.reconnects,1);assert.doesNotMatch(f.controller.snapshot().error,/登录已失效/)
+  await f.controller.refresh();assert.equal(f.reconnects,1,'automatic recovery remains rate limited')
+  recovering=false;await f.controller.restore();assert.equal(f.controller.snapshot().error,'');assert.equal(f.controller.snapshot().items[0].id,'current');f.controller.close()
+})

@@ -56,7 +56,7 @@ export function createMobileNavigation({ api, workspace, sessions, connection, h
     }catch(error){
       if(disposed||issued!==pull||request.signal.aborted)return
       if(unauthorized(error)){warmup.sync({enabled:false});retention.clear()}
-      if(error?.code==='mobile/timeout')reconnect()
+      if(['mobile/timeout','mobile/session-sync'].includes(error?.code))reconnect()
       const errorText=accessError(error)||'暂时无法同步电脑。输入草稿由原版会话保留，请检查网络后重试。'
       publish({loading:false,error:errorText})
     }})().finally(()=>{if(controller===request)refreshing=undefined})
@@ -83,7 +83,7 @@ export function createMobileNavigation({ api, workspace, sessions, connection, h
       if(disposed||attempt!==nav)return
       if(unauthorized(error)){warmup.sync({enabled:false});retention.clear()}
       else if(error?.code==='mobile/not-found')retention.discard(id)
-      if(error?.code==='mobile/timeout')reconnect()
+      if(['mobile/timeout','mobile/session-sync'].includes(error?.code))reconnect()
       publish({loading:false,error:accessError(error)||'无法打开会话，请刷新列表后重试。'})
     }finally{if(navigation===request)navigation=undefined}
   }
