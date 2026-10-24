@@ -23,7 +23,7 @@ export function createMobileClient({ appRoot, fetch: request = globalThis.fetch,
     signal?.throwIfAborted()
     let response
     try {
-      response = await request(route, { method: 'POST', credentials: 'same-origin', redirect: 'error',
+      response = await request(route, { method: 'POST', credentials: 'same-origin', cache:'no-store',redirect: 'error',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint, payload }), signal })
     } catch (cause) {
       throw failure('mobile/transport', 'Connection interrupted', { cause, uncertain: true })
@@ -42,6 +42,28 @@ export function createMobileClient({ appRoot, fetch: request = globalThis.fetch,
     return result.value
   }
 
+  async function readState(payload,signal){
+    let refusal
+    try{return await call('state',payload,signal)}catch(error){
+      if(error.code!=='HTTP_401'||desktopRoot)throw error
+      refusal=error
+    }
+    // A carrier or API owner can reject a read while the browser's durable
+    // login still works. Check the authenticated root before asking to log in.
+    // This exchanges no credential and never retries a message submission.
+    let response
+    try{response=await request(root,{method:'HEAD',credentials:'same-origin',cache:'no-store',redirect:'error',signal})}
+    catch(cause){throw failure('mobile/transport','Connection check interrupted',{cause})}
+    signal.throwIfAborted()
+    if(response.status===401)throw refusal
+    if(response.status===403)throw failure('HTTP_403','DSH entry refused access')
+    if(response.status!==200)throw failure('mobile/transport','DSH entry is not ready')
+    try{return await call('state',payload,signal)}catch(error){
+      if(error.code==='HTTP_401')throw failure('mobile/session-sync','Browser login is valid but the team connection is not ready')
+      throw error
+    }
+  }
+
   async function refresh(signal) {
     signal?.throwIfAborted()
     if (!stateRequest) {
@@ -49,7 +71,7 @@ export function createMobileClient({ appRoot, fetch: request = globalThis.fetch,
       const order = ++issued
       stateRequest = request
       request.promise = (async () => {
-        const value = await readOperation(signal=>call('state', state ? { since: state.revision, models: state.modelsKey } : {}, signal),{signal:request.controller.signal,timeoutMs:readTimeoutMs})
+        const value = await readOperation(signal=>readState(state ? { since: state.revision, models: state.modelsKey } : {}, signal),{signal:request.controller.signal,timeoutMs:readTimeoutMs})
         request.controller.signal.throwIfAborted()
         if (order < applied) return state
         if (!value || (!value.unchanged && (!Array.isArray(value.bots) || !Array.isArray(value.rooms)))) {
