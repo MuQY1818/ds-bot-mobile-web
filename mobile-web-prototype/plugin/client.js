@@ -3560,6 +3560,8 @@ body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay]){position:fix
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_sidebarCol"],body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-side]{display:none!important}
 /* DS Bot 0.2+ portals its left column and Windows title toggle to <body>, outside the host sidebar column. */
 body[data-dsm-enabled]>:is(.bt-leftcol,.bt-title-toggle){display:none!important}
+/* DS Bot 0.2+ also reserves its (now hidden) left column on the host centre column via an injected margin-left!important. */
+body[data-dsm-enabled] [class*="_centerCol"]{margin-left:0!important}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_centerCol"]{grid-column:2!important;grid-row:1!important;min-width:0!important;background:var(--dsm-bg)!important}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-rightbar-col]{grid-column:3!important;grid-row:1!important}
 body[data-dsm-enabled][data-dsm-page=home] [class*="_centerCol"]{visibility:hidden;pointer-events:none}

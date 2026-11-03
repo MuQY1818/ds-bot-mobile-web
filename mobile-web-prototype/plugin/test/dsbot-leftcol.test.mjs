@@ -11,3 +11,12 @@ test('mobile styles hide DS Bot body-level left column and title toggle', async 
   assert.ok(css.includes(rule))
   assert.ok(compileMobileStyles(css, new Set()).includes(rule))
 })
+
+// Issue #4 follow-up: DS Bot 0.2 also writes `._centerCol{margin-left:<rail/open width>px!important}`,
+// leaving an empty strip on the left once its column is hidden.
+test('mobile styles cancel the DS Bot left-column margin on the centre column', async () => {
+  const css = await readFile(new URL('../src/mobile.css', import.meta.url), 'utf8')
+  const rule = 'body[data-dsm-enabled] [class*="_centerCol"]{margin-left:0!important}'
+  assert.ok(css.includes(rule))
+  assert.ok(compileMobileStyles(css, new Set()).includes(rule))
+})
