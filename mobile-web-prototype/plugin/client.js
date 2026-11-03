@@ -3558,6 +3558,8 @@ body[data-dsm-enabled][data-ds-dark-theme]{--bt-main:#141414;--bt-bubble:#292929
 html[data-dsm-theme-effect=fade] body[data-dsm-enabled] :is(.dsm-bar,.dsm-home,.dsm-tabs,.dsm-search,.dsm-chrome button,.dsm-current,.dsm-row-copy small,.bt-bubble,.bt-ubody,[data-composer-card]){transition:background-color 200ms ease-out,color 200ms ease-out,border-color 200ms ease-out}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay]){position:fixed!important;inset:var(--dsm-top,0px) 0 auto!important;height:var(--dsm-height,100dvh)!important;box-sizing:border-box!important;padding-top:var(--dsm-bar)!important;grid-template-columns:0 minmax(0,1fr) 0!important;grid-template-rows:minmax(0,1fr)!important;transition:none!important;background:var(--dsm-bg)}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_sidebarCol"],body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-side]{display:none!important}
+/* DS Bot 0.2+ portals its left column and Windows title toggle to <body>, outside the host sidebar column. */
+body[data-dsm-enabled]>:is(.bt-leftcol,.bt-title-toggle){display:none!important}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[class*="_centerCol"]{grid-column:2!important;grid-row:1!important;min-width:0!important;background:var(--dsm-bg)!important}
 body[data-dsm-enabled] [class*="_frame"]:has(>[data-shell-overlay])>[data-rightbar-col]{grid-column:3!important;grid-row:1!important}
 body[data-dsm-enabled][data-dsm-page=home] [class*="_centerCol"]{visibility:hidden;pointer-events:none}
