@@ -20,3 +20,11 @@ test('mobile styles cancel the DS Bot left-column margin on the centre column', 
   assert.ok(css.includes(rule))
   assert.ok(compileMobileStyles(css, new Set()).includes(rule))
 })
+
+// DS Bot 0.2 `@media (hover:none)` adds right:4px + card shadow to .bt-tools; with our left:0 the
+// toolbar stretched into a full-width white bar under the tapped message.
+test('mobile message toolbar stays an inline icon row under DS Bot 0.2 touch styles', async () => {
+  const css = await readFile(new URL('../src/mobile.css', import.meta.url), 'utf8')
+  const rule = css.match(/body\[data-dsm-enabled\] \.bt-tools\{([^}]*)\}/)?.[1] ?? ''
+  for (const decl of ['left:0', 'right:auto', 'padding:0', 'box-shadow:none']) assert.ok(rule.split(';').includes(decl), decl)
+})

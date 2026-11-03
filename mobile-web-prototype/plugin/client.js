@@ -3585,7 +3585,7 @@ body[data-dsm-enabled] .bt-msg-line{gap:8px}
 body[data-dsm-enabled] .bt-bubble,body[data-dsm-enabled] .bt-ubody{border-radius:21px;padding:11px 15px;font-size:17px;line-height:26px}
 body[data-dsm-enabled] .bt-group-name{font-size:12px;line-height:18px;margin-left:30px;margin-bottom:4px;color:var(--dsm-secondary)}
 body[data-dsm-enabled] .bt-msg:has(.bt-tools):is(:hover,:focus-within),body[data-dsm-enabled] .bt-msg:has(.bt-tools[data-open]){padding-bottom:48px}
-body[data-dsm-enabled] .bt-tools{top:100%;left:0;margin:2px 0 0;transform:none;gap:2px;z-index:2;background:var(--dsm-bg);border-radius:14px}
+body[data-dsm-enabled] .bt-tools{top:100%;left:0;right:auto;margin:2px 0 0;padding:0;transform:none;gap:2px;z-index:2;background:var(--dsm-bg);border-radius:14px;box-shadow:none}
 body[data-dsm-enabled] .bt-tools .bt-tool{width:44px;height:44px}
 body[data-dsm-enabled] .bt-tools::after{display:none}
 body[data-dsm-enabled] [class*="_root"]:has(>[data-composer-card]){padding:8px 12px max(12px,env(safe-area-inset-bottom))!important}
